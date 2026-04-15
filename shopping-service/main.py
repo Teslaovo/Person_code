@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from app import api, models, database
+
+# 创建上传目录
+os.makedirs("uploads", exist_ok=True)
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -13,6 +18,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 挂载静态文件服务，用于访问上传的图片
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.include_router(api.router)
 

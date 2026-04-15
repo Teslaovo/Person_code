@@ -21,6 +21,10 @@ export default defineConfig({
         target: 'http://localhost:8082',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/shop/, '')
+      },
+      '/uploads': {
+        target: 'http://localhost:8082',
+        changeOrigin: true
       }
     }
   }

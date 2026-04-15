@@ -35,6 +35,13 @@ class Order(Base):
     user_id = Column(Integer, nullable=False)
     total_price = Column(Float, nullable=False)
     status = Column(String, default="pending")
+    # 收货地址信息（快照）
+    address_name = Column(String)
+    address_phone = Column(String)
+    address_province = Column(String)
+    address_city = Column(String)
+    address_district = Column(String)
+    address_detail = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -15,6 +15,14 @@ class ProductCreate(ProductBase):
     pass
 
 
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    image: Optional[str] = None
+    stock: Optional[int] = None
+
+
 class ProductResponse(ProductBase):
     id: int
     created_at: datetime
@@ -75,11 +83,23 @@ class OrderBase(BaseModel):
     user_id: int
     total_price: float
     status: str = "pending"
+    address_name: Optional[str] = None
+    address_phone: Optional[str] = None
+    address_province: Optional[str] = None
+    address_city: Optional[str] = None
+    address_district: Optional[str] = None
+    address_detail: Optional[str] = None
 
 
 class OrderCreate(BaseModel):
     user_id: int
     items: List[CartItemCreate]
+    address_name: Optional[str] = None
+    address_phone: Optional[str] = None
+    address_province: Optional[str] = None
+    address_city: Optional[str] = None
+    address_district: Optional[str] = None
+    address_detail: Optional[str] = None
 
 
 class OrderResponse(OrderBase):

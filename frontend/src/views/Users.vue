@@ -13,12 +13,18 @@
         <el-table-column prop="username" label="用户名" />
         <el-table-column prop="nickname" label="昵称" />
         <el-table-column prop="phone" label="手机号" />
+        <el-table-column prop="role" label="角色" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.role === 'admin' ? 'danger' : 'info'">
+              {{ row.role === 'admin' ? '管理员' : '普通用户' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间">
           <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作">
+        <el-table-column label="操作" width="150">
           <template #default="{ row }">
-            <el-button size="small" link @click="selectUser(row)">选择</el-button>
             <el-button size="small" link @click="showEditDialog(row)">编辑</el-button>
             <el-button size="small" type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>
@@ -39,6 +45,12 @@
         </el-form-item>
         <el-form-item label="手机号">
           <el-input v-model="form.phone" />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="form.role" style="width: 100%">
+            <el-option label="普通用户" value="user" />
+            <el-option label="管理员" value="admin" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -62,7 +74,8 @@ const form = ref({
   username: '',
   password: '',
   nickname: '',
-  phone: ''
+  phone: '',
+  role: 'user'
 })
 
 onMounted(() => {
@@ -76,7 +89,7 @@ async function loadUsers() {
 
 function showCreateDialog() {
   editingUser.value = null
-  form.value = { username: '', password: '', nickname: '', phone: '' }
+  form.value = { username: '', password: '', nickname: '', phone: '', role: 'user' }
   dialogVisible.value = true
 }
 
@@ -108,11 +121,6 @@ async function handleDelete(user) {
   await deleteUser(user.id)
   ElMessage.success('删除成功')
   loadUsers()
-}
-
-function selectUser(user) {
-  localStorage.setItem('currentUser', JSON.stringify(user))
-  ElMessage.success(`已选择用户: ${user.nickname || user.username}`)
 }
 
 function formatDate(dateStr) {

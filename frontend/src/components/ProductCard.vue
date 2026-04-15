@@ -1,6 +1,8 @@
 <template>
   <el-card class="product-card" shadow="hover">
-    <img :src="product.image" class="product-image" />
+    <div class="image-wrapper">
+      <img :src="product.image || defaultImage" class="product-image" @error="handleImageError" />
+    </div>
     <h3>{{ product.name }}</h3>
     <p class="description">{{ product.description }}</p>
     <div class="price-row">
@@ -14,17 +16,34 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 defineProps(['product'])
 defineEmits(['add-to-cart'])
+
+const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGN0ZGIiLz4KPHBhdGggZD0iTTYwIDEyMEw4NSA4NUwxMTUgMTEwTDE0NSA3NUwxNzAgMTIwSDYwWiIgZmlsbD0iI0Q5RDNEQyIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSIxNSIgZmlsbD0iI0Q5RDNEQyIvPgo8L3N2Zz4K'
+
+function handleImageError(e) {
+  e.target.src = defaultImage
+}
 </script>
 
 <style scoped>
 .product-card {
   margin-bottom: 20px;
 }
-.product-image {
+.image-wrapper {
   width: 100%;
   height: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: #f5f7fa;
+}
+.product-image {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 .product-card h3 {

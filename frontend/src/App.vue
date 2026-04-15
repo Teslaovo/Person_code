@@ -1,5 +1,5 @@
 <template>
-  <el-container class="app-container">
+  <el-container class="app-container" v-if="currentUser">
     <el-header class="app-header">
       <div class="logo">
         <h1>Rayshopping 购物平台</h1>
@@ -10,90 +10,79 @@
         :router="true"
         class="nav-menu"
       >
-        <el-menu-item index="/">商城首页</el-menu-item>
-        <el-menu-item index="/cart">购物车</el-menu-item>
-        <el-menu-item index="/orders">我的订单</el-menu-item>
-        <el-menu-item index="/users">用户管理</el-menu-item>
+        <el-menu-item index="/">商城</el-menu-item>
+        <el-menu-item index="/cart" v-if="!isAdmin">购物车</el-menu-item>
+        <el-menu-item index="/orders">{{ isAdmin ? '客户订单' : '我的订单' }}</el-menu-item>
+        <el-menu-item index="/addresses" v-if="!isAdmin">收货地址</el-menu-item>
+        <el-menu-item index="/users" v-if="isAdmin">用户管理</el-menu-item>
+        <el-menu-item index="/products" v-if="isAdmin">商品管理</el-menu-item>
       </el-menu>
       <div class="current-user">
-        <span v-if="currentUser">当前用户: {{ currentUser.nickname || currentUser.username }}</span>
-        <el-button v-else type="primary" size="small" @click="showUserSelect">选择用户</el-button>
+        <span>{{ currentUser.nickname || currentUser.username }} ({{ isAdmin ? '管理员' : '普通用户' }})</span>
+        <el-button type="danger" size="small" @click="handleLogout">退出</el-button>
       </div>
     </el-header>
     <el-main class="app-main">
       <router-view />
     </el-main>
   </el-container>
-
-  <el-dialog v-model="userDialogVisible" title="选择用户" width="500px">
-    <el-select v-model="selectedUserId" placeholder="请选择用户" style="width: 100%" @change="onUserSelect">
-      <el-option
-        v-for="user in users"
-        :key="user.id"
-        :label="user.nickname || user.username"
-        :value="user.id"
-      />
-    </el-select>
-    <template #footer>
-      <el-button type="primary" @click="createNewUser">创建新用户</el-button>
-    </template>
-  </el-dialog>
+  <div v-else>
+    <router-view />
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getUsers } from '@/api/user'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
 const currentUser = ref(null)
-const users = ref([])
-const userDialogVisible = ref(false)
-const selectedUserId = ref(null)
+
+const isAdmin = computed(() => {
+  return currentUser.value?.role === 'admin'
+})
 
 const activeMenu = computed(() => route.path)
 
-onMounted(() => {
-  loadUsers()
+function loadUser() {
   const saved = localStorage.getItem('currentUser')
   if (saved) {
-    currentUser.value = JSON.parse(saved)
+    try {
+      currentUser.value = JSON.parse(saved)
+      console.log('Loaded user:', currentUser.value)
+      console.log('Is admin:', isAdmin.value)
+    } catch (e) {
+      console.error('Failed to parse user data:', e)
+      localStorage.removeItem('currentUser')
+      localStorage.removeItem('token')
+    }
+  }
+}
+
+onMounted(() => {
+  loadUser()
+})
+
+// 监听路由变化，重新加载用户数据
+watch(() => route.path, () => {
+  if (!currentUser.value) {
+    loadUser()
   }
 })
 
-async function loadUsers() {
-  try {
-    const res = await getUsers()
-    users.value = res.data
-    if (users.value.length === 0) {
-      ElMessage.warning('暂无用户，请先创建用户')
-    }
-  } catch (e) {
-    console.error('加载用户失败', e)
-    ElMessage.error('无法连接到用户服务，请确认后端服务已启动')
-  }
-}
-
-function showUserSelect() {
-  loadUsers()
-  userDialogVisible.value = true
-}
-
-function onUserSelect(userId) {
-  const user = users.value.find(u => u.id === userId)
-  if (user) {
-    currentUser.value = user
-    localStorage.setItem('currentUser', JSON.stringify(user))
-    userDialogVisible.value = false
-    ElMessage.success(`已选择用户: ${user.nickname || user.username}`)
-  }
-}
-
-function createNewUser() {
-  userDialogVisible.value = false
-  router.push('/users')
+async function handleLogout() {
+  await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  localStorage.removeItem('token')
+  localStorage.removeItem('currentUser')
+  currentUser.value = null
+  ElMessage.success('已退出登录')
+  router.push('/login')
 }
 </script>
 
@@ -119,6 +108,12 @@ function createNewUser() {
 }
 .current-user {
   margin-left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.current-user span {
+  color: #666;
 }
 .app-main {
   background: #f5f7fa;
