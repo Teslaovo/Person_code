@@ -9,9 +9,14 @@
       <span class="price">¥{{ product.price.toFixed(2) }}</span>
       <span class="stock">库存: {{ product.stock }}</span>
     </div>
-    <el-button type="primary" style="width: 100%" @click="$emit('add-to-cart', product)">
-      加入购物车
-    </el-button>
+    <div class="button-group">
+      <el-button type="primary" style="flex: 1" @click="$emit('add-to-cart', product)">
+        加入购物车
+      </el-button>
+      <el-button type="warning" style="flex: 1" @click="$emit('buy-now', product)">
+        立即购买
+      </el-button>
+    </div>
   </el-card>
 </template>
 
@@ -19,9 +24,9 @@
 import { ref } from 'vue'
 
 defineProps(['product'])
-defineEmits(['add-to-cart'])
+defineEmits(['add-to-cart', 'buy-now'])
 
-const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGN0ZGIiLz4KPHBhdGggZD0iTTYwIDEyMEw4NSA4NUwxMTUgMTEwTDE0NSA3NUwxNzAgMTIwSDYwWiIgZmlsbD0iI0Q5RDNEQyIvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSIxNSIgZmlsbD0iI0Q5RDNEQyIvPgo8L3N2Zz4K'
+const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGN0ZGIi8+CjxwYXRoIGQ9Ik02MCAxMjBMODUgODVMMTE1IDExMEwxNDUgNzVMMTcwIDEyMEg2MFoiIGZpbGw9IiNEOUQzREMvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSIxNSIgZmlsbD0iI0Q5RDNEQyIvPgo8L3N2Zz4K'
 
 function handleImageError(e) {
   e.target.src = defaultImage
@@ -70,5 +75,9 @@ function handleImageError(e) {
 .stock {
   color: #999;
   font-size: 12px;
+}
+.button-group {
+  display: flex;
+  gap: 8px;
 }
 </style>

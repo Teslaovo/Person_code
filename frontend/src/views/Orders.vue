@@ -56,7 +56,7 @@
         <el-card>
           <div class="order-header">
             <span class="order-id">订单 #{{ order.id }}</span>
-            <span v-if="isAdmin" class="user-id">用户ID: {{ order.user_id }}</span>
+            <span v-if="isAdmin" class="user-id">用户昵称：{{ getUserNickname(order.user_id) }}</span>
             <el-tag :type="order.status === 'paid' ? 'success' : 'info'">
               {{ order.status === 'paid' ? '已支付' : order.status }}
             </el-tag>
@@ -72,7 +72,11 @@
             </div>
           </div>
           <el-table :data="order.items" size="small">
-            <el-table-column prop="product_id" label="商品ID" width="100" />
+            <el-table-column label="商品">
+              <template #default="{ row }">
+                {{ getProductName(row.product_id) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="quantity" label="数量" width="100" />
             <el-table-column prop="price" label="单价">
               <template #default="{ row }">¥{{ row.price.toFixed(2) }}</template>
@@ -89,13 +93,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getOrders, getAllOrders, createOrder } from '@/api/shopping'
-import { getAddresses } from '@/api/user'
+import { getOrders, getAllOrders, createOrder, getProducts } from '@/api/shopping'
+import { getAddresses, getUsers } from '@/api/user'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const orders = ref([])
 const addresses = ref([])
+const products = ref([])
+const users = ref([])
 const showCheckout = ref(false)
 const checkoutItems = ref([])
 const creating = ref(false)
@@ -113,8 +119,12 @@ onMounted(() => {
   const saved = localStorage.getItem('currentUser')
   if (saved) {
     currentUser.value = JSON.parse(saved)
+    loadProducts()
     loadOrders()
     loadAddresses()
+    if (isAdmin.value) {
+      loadUsers()
+    }
   }
   if (route.query.checkout) {
     const items = localStorage.getItem('checkoutItems')
@@ -125,6 +135,30 @@ onMounted(() => {
     }
   }
 })
+
+async function loadProducts() {
+  const res = await getProducts()
+  products.value = res.data || []
+}
+
+async function loadUsers() {
+  try {
+    const res = await getUsers()
+    users.value = res.data || []
+  } catch (e) {
+    console.error('Load users failed', e)
+  }
+}
+
+function getProductName(productId) {
+  const product = products.value.find(p => p.id === productId)
+  return product ? product.name : `商品 #${productId}`
+}
+
+function getUserNickname(userId) {
+  const user = users.value.find(u => u.id === userId)
+  return user ? (user.nickname || user.username) : `用户 #${userId}`
+}
 
 async function loadOrders() {
   if (!currentUser.value) return

@@ -17,7 +17,7 @@
     <h2>商城首页</h2>
     <el-row :gutter="20">
       <el-col :span="6" v-for="product in products" :key="product.id">
-        <product-card :product="product" @add-to-cart="handleAddToCart" />
+        <product-card :product="product" @add-to-cart="handleAddToCart" @buy-now="handleBuyNow" />
       </el-col>
     </el-row>
   </div>
@@ -71,6 +71,39 @@ async function handleAddToCart(product) {
     quantity: 1
   })
   ElMessage.success('已加入购物车')
+}
+
+async function handleBuyNow(product) {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    const confirm = await ElMessageBox.confirm('请先登录后再购买', '提示', {
+      confirmButtonText: '去登录',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).catch(() => {})
+    if (confirm) {
+      router.push('/login')
+    }
+    return
+  }
+
+  // 检查库存
+  if (product.stock < 1) {
+    ElMessage.warning('该商品库存不足')
+    return
+  }
+
+  // 构造立即购买的商品项
+  const checkoutItem = {
+    id: Date.now(), // 临时ID
+    product_id: product.id,
+    quantity: 1,
+    product: product
+  }
+
+  // 保存到 localStorage 并跳转到订单页面
+  localStorage.setItem('checkoutItems', JSON.stringify([checkoutItem]))
+  router.push('/orders?checkout=true')
 }
 </script>
 
