@@ -111,9 +111,24 @@ class OrderCreate(BaseModel):
     address_detail: Optional[str] = None
 
 
+class OrderUpdateStatus(BaseModel):
+    status: str
+
+
+class OrderShip(BaseModel):
+    tracking_number: Optional[str] = None
+    tracking_company: Optional[str] = None
+
+
 class OrderResponse(OrderBase):
     id: int
     items: List[OrderItemResponse] = []
+    tracking_number: Optional[str] = None
+    tracking_company: Optional[str] = None
+    paid_at: Optional[datetime] = None
+    shipped_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -156,6 +171,40 @@ class MessageResponse(MessageBase):
     is_read: int = 0
     created_at: datetime
     from_user_nickname: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class ReviewBase(BaseModel):
+    user_id: int
+    product_id: int
+    order_id: int
+    rating: int
+    content: Optional[str] = None
+    images: Optional[str] = None
+
+
+class ReviewCreate(BaseModel):
+    product_id: int
+    order_id: int
+    rating: int
+    content: Optional[str] = None
+    images: Optional[str] = None
+
+
+class ReviewUpdate(BaseModel):
+    rating: Optional[int] = None
+    content: Optional[str] = None
+    images: Optional[str] = None
+
+
+class ReviewResponse(ReviewBase):
+    id: int
+    user_nickname: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True

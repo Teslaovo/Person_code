@@ -136,7 +136,7 @@ def create_order(db: Session, user_id: int, items: list, total_price: float, add
         product.stock -= item.quantity
         product.sales += item.quantity  # 增加销量
 
-    db_order = models.Order(user_id=user_id, total_price=total_price, status="paid")
+    db_order = models.Order(user_id=user_id, total_price=total_price, status="pending")
     if address_data:
         db_order.address_name = address_data.get("name")
         db_order.address_phone = address_data.get("phone")
@@ -157,6 +157,47 @@ def create_order(db: Session, user_id: int, items: list, total_price: float, add
         )
         db.add(order_item)
     db.commit()
+    return db_order
+
+
+def update_order_status(db: Session, order_id: int, status: str):
+    from sqlalchemy.sql import func
+    db_order = get_order(db, order_id)
+    if not db_order:
+        return None
+    db_order.status = status
+    if status == "paid":
+        db_order.paid_at = func.now()
+    elif status == "shipped":
+        db_order.shipped_at = func.now()
+    elif status == "completed":
+        db_order.completed_at = func.now()
+    elif status == "cancelled":
+        db_order.cancelled_at = func.now()
+        # 取消订单时恢复库存和销量
+        for item in db_order.items:
+            product = get_product(db, item.product_id)
+            if product:
+                product.stock += item.quantity
+                product.sales -= item.quantity
+    db.commit()
+    db.refresh(db_order)
+    return db_order
+
+
+def ship_order(db: Session, order_id: int, tracking_number: str = None, tracking_company: str = None):
+    from sqlalchemy.sql import func
+    db_order = get_order(db, order_id)
+    if not db_order:
+        return None
+    if tracking_number:
+        db_order.tracking_number = tracking_number
+    if tracking_company:
+        db_order.tracking_company = tracking_company
+    db_order.status = "shipped"
+    db_order.shipped_at = func.now()
+    db.commit()
+    db.refresh(db_order)
     return db_order
 
 
@@ -255,3 +296,85 @@ def get_conversation_users(db: Session, user_id: int):
         if msg.to_user_id != user_id:
             user_ids.add(msg.to_user_id)
     return list(user_ids)
+
+
+def get_reviews_by_product(db: Session, product_id: int, skip: int = 0, limit: int = 100):
+    return db.query(models.Review).filter(models.Review.product_id == product_id).order_by(
+        models.Review.created_at.desc()
+    ).offset(skip).limit(limit).all()
+
+
+def get_reviews_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+    return db.query(models.Review).filter(models.Review.user_id == user_id).order_by(
+        models.Review.created_at.desc()
+    ).offset(skip).limit(limit).all()
+
+
+def get_review(db: Session, review_id: int):
+    return db.query(models.Review).filter(models.Review.id == review_id).first()
+
+
+def get_review_by_order_and_product(db: Session, order_id: int, product_id: int):
+    return db.query(models.Review).filter(
+        models.Review.order_id == order_id,
+        models.Review.product_id == product_id
+    ).first()
+
+
+def create_review(db: Session, user_id: int, review: schemas.ReviewCreate):
+    # 检查是否已经评价过
+    existing = get_review_by_order_and_product(db, review.order_id, review.product_id)
+    if existing:
+        raise ValueError("该商品已评价")
+    db_review = models.Review(
+        user_id=user_id,
+        product_id=review.product_id,
+        order_id=review.order_id,
+        rating=review.rating,
+        content=review.content,
+        images=review.images
+    )
+    db.add(db_review)
+    db.commit()
+    db.refresh(db_review)
+    return db_review
+
+
+def update_review(db: Session, review_id: int, review: schemas.ReviewUpdate):
+    db_review = get_review(db, review_id)
+    if not db_review:
+        return None
+    update_data = review.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_review, key, value)
+    db.commit()
+    db.refresh(db_review)
+    return db_review
+
+
+def delete_review(db: Session, review_id: int):
+    db_review = get_review(db, review_id)
+    if not db_review:
+        return None
+    db.delete(db_review)
+    db.commit()
+    return db_review
+
+
+def get_pending_review_products(db: Session, user_id: int, order_id: int):
+    order = db.query(models.Order).filter(
+        models.Order.id == order_id,
+        models.Order.user_id == user_id,
+        models.Order.status == "completed"
+    ).first()
+    if not order:
+        return []
+    reviewed_product_ids = [r.product_id for r in db.query(models.Review).filter(
+        models.Review.order_id == order_id,
+        models.Review.user_id == user_id
+    ).all()]
+    pending_items = []
+    for item in order.items:
+        if item.product_id not in reviewed_product_ids:
+            pending_items.append(item)
+    return pending_items

@@ -189,6 +189,28 @@ def get_order_detail(order_id: int, db: Session = Depends(get_db)):
     return success_response(order_dict)
 
 
+@router.put("/api/orders/{order_id}/status")
+def update_order_status(order_id: int, update: schemas.OrderUpdateStatus, db: Session = Depends(get_db)):
+    valid_statuses = ["pending", "paid", "shipped", "completed", "cancelled"]
+    if update.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    updated = crud.update_order_status(db, order_id=order_id, status=update.status)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return success_response(schemas.OrderResponse.from_orm(updated))
+
+
+@router.post("/api/orders/{order_id}/ship")
+def ship_order(order_id: int, ship_data: schemas.OrderShip, db: Session = Depends(get_db)):
+    order = crud.get_order(db, order_id=order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "paid":
+        raise HTTPException(status_code=400, detail="Only paid orders can be shipped")
+    updated = crud.ship_order(db, order_id=order_id, tracking_number=ship_data.tracking_number, tracking_company=ship_data.tracking_company)
+    return success_response(schemas.OrderResponse.from_orm(updated))
+
+
 @router.get("/api/favorites/{user_id}")
 def get_favorites(user_id: int, db: Session = Depends(get_db)):
     favorites = crud.get_favorites_by_user(db, user_id=user_id)
@@ -267,3 +289,57 @@ def remove_favorite(user_id: int, product_id: int, db: Session = Depends(get_db)
     if deleted is None:
         raise HTTPException(status_code=404, detail="Favorite not found")
     return success_response({"id": deleted.id})
+
+
+@router.get("/api/reviews/product/{product_id}")
+def get_product_reviews(product_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    reviews = crud.get_reviews_by_product(db, product_id=product_id, skip=skip, limit=limit)
+    return success_response([schemas.ReviewResponse.from_orm(r) for r in reviews])
+
+
+@router.get("/api/reviews/user/{user_id}")
+def get_user_reviews(user_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    reviews = crud.get_reviews_by_user(db, user_id=user_id, skip=skip, limit=limit)
+    return success_response([schemas.ReviewResponse.from_orm(r) for r in reviews])
+
+
+@router.get("/api/reviews/pending/{user_id}/{order_id}")
+def get_pending_reviews(user_id: int, order_id: int, db: Session = Depends(get_db)):
+    items = crud.get_pending_review_products(db, user_id=user_id, order_id=order_id)
+    result = []
+    for item in items:
+        product = crud.get_product(db, item.product_id)
+        result.append({
+            "order_item_id": item.id,
+            "product_id": item.product_id,
+            "product_name": product.name if product else None,
+            "product_image": product.image if product else None,
+            "quantity": item.quantity,
+            "price": item.price
+        })
+    return success_response(result)
+
+
+@router.post("/api/reviews")
+def create_review(review: schemas.ReviewCreate, db: Session = Depends(get_db)):
+    try:
+        created = crud.create_review(db, user_id=review.user_id if hasattr(review, 'user_id') else review.user_id, review=review)
+        return success_response(schemas.ReviewResponse.from_orm(created))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/api/reviews/{review_id}")
+def update_review(review_id: int, review: schemas.ReviewUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_review(db, review_id=review_id, review=review)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return success_response(schemas.ReviewResponse.from_orm(updated))
+
+
+@router.delete("/api/reviews/{review_id}")
+def delete_review(review_id: int, db: Session = Depends(get_db)):
+    deleted = crud.delete_review(db, review_id=review_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return success_response(schemas.ReviewResponse.from_orm(deleted))

@@ -97,6 +97,14 @@ export function getOrderDetail(id) {
   return api.get(`/api/orders/detail/${id}`)
 }
 
+export function updateOrderStatus(id, status) {
+  return api.put(`/api/orders/${id}/status`, { status })
+}
+
+export function shipOrder(id, data) {
+  return api.post(`/api/orders/${id}/ship`, data)
+}
+
 export function getFavorites(userId) {
   return api.get(`/api/favorites/${userId}`)
 }

@@ -57,8 +57,8 @@
           <div class="order-header">
             <span class="order-id">订单 #{{ order.id }}</span>
             <span v-if="isAdmin" class="user-id">用户昵称：{{ getUserNickname(order.user_id) }}</span>
-            <el-tag :type="order.status === 'paid' ? 'success' : 'info'">
-              {{ order.status === 'paid' ? '已支付' : order.status }}
+            <el-tag :type="getStatusType(order.status)">
+              {{ getStatusText(order.status) }}
             </el-tag>
           </div>
           <div v-if="order.address_name" class="order-address">
@@ -69,6 +69,13 @@
             </div>
             <div class="address-detail">
               {{ order.address_province }}{{ order.address_city }}{{ order.address_district || '' }}{{ order.address_detail }}
+            </div>
+          </div>
+          <div v-if="order.tracking_number" class="order-tracking">
+            <div class="tracking-title">物流信息</div>
+            <div class="tracking-content">
+              <span v-if="order.tracking_company" class="company">{{ order.tracking_company }}</span>
+              <span class="number">{{ order.tracking_number }}</span>
             </div>
           </div>
           <el-table :data="order.items" size="small">
@@ -83,19 +90,48 @@
             </el-table-column>
           </el-table>
           <div class="order-total">订单总额: <span class="price">¥{{ order.total_price.toFixed(2) }}</span></div>
+          <div class="order-actions">
+            <template v-if="!isAdmin">
+              <el-button v-if="order.status === 'pending'" type="primary" size="small" @click="handlePay(order)">立即付款</el-button>
+              <el-button v-if="order.status === 'pending'" size="small" @click="handleCancel(order)">取消订单</el-button>
+              <el-button v-if="order.status === 'shipped'" type="success" size="small" @click="handleConfirm(order)">确认收货</el-button>
+            </template>
+            <template v-else>
+              <el-button v-if="order.status === 'pending'" type="primary" size="small" @click="handleUpdateStatus(order, 'paid')">标记已付款</el-button>
+              <el-button v-if="order.status === 'paid'" type="warning" size="small" @click="handleShip(order)">发货</el-button>
+              <el-button v-if="order.status === 'shipped'" type="success" size="small" @click="handleUpdateStatus(order, 'completed')">标记完成</el-button>
+              <el-button v-if="['pending', 'paid'].includes(order.status)" size="small" @click="handleCancel(order)">取消订单</el-button>
+            </template>
+          </div>
         </el-card>
       </el-timeline-item>
     </el-timeline>
     <el-empty v-else description="暂无订单" />
+
+    <!-- 发货对话框 -->
+    <el-dialog v-model="showShipDialog" title="发货" width="500px">
+      <el-form :model="shipForm" label-width="100px">
+        <el-form-item label="物流公司">
+          <el-input v-model="shipForm.tracking_company" placeholder="请输入物流公司名称" />
+        </el-form-item>
+        <el-form-item label="物流单号">
+          <el-input v-model="shipForm.tracking_number" placeholder="请输入物流单号" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showShipDialog = false">取消</el-button>
+        <el-button type="primary" :loading="shipping" @click="submitShip">确认发货</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getOrders, getAllOrders, createOrder, getProducts } from '@/api/shopping'
+import { getOrders, getAllOrders, createOrder, getProducts, updateOrderStatus, shipOrder } from '@/api/shopping'
 import { getAddresses, getUsers } from '@/api/user'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
 const orders = ref([])
@@ -108,12 +144,41 @@ const creating = ref(false)
 const currentUser = ref(null)
 const selectedAddressId = ref(null)
 const selectedAddress = ref(null)
+const showShipDialog = ref(false)
+const shipping = ref(false)
+const shipForm = ref({
+  tracking_company: '',
+  tracking_number: ''
+})
+const shippingOrderId = ref(null)
 
 const isAdmin = computed(() => currentUser.value?.role === 'admin')
 
 const checkoutTotal = computed(() => {
   return checkoutItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
 })
+
+function getStatusType(status) {
+  const map = {
+    pending: 'warning',
+    paid: 'primary',
+    shipped: 'info',
+    completed: 'success',
+    cancelled: 'danger'
+  }
+  return map[status] || 'info'
+}
+
+function getStatusText(status) {
+  const map = {
+    pending: '待付款',
+    paid: '待发货',
+    shipped: '待收货',
+    completed: '已完成',
+    cancelled: '已取消'
+  }
+  return map[status] || status
+}
 
 onMounted(() => {
   const saved = localStorage.getItem('currentUser')
@@ -220,7 +285,7 @@ async function submitOrder() {
       address_district: selectedAddress.value.district,
       address_detail: selectedAddress.value.detail
     })
-    ElMessage.success('订单创建成功')
+    ElMessage.success('订单创建成功，请付款')
     showCheckout.value = false
     checkoutItems.value = []
     loadOrders()
@@ -228,6 +293,94 @@ async function submitOrder() {
     ElMessage.error(e.message || e.detail || '订单创建失败')
   } finally {
     creating.value = false
+  }
+}
+
+async function handlePay(order) {
+  try {
+    await ElMessageBox.confirm(`确认支付 ¥${order.total_price.toFixed(2)} 吗？`, '模拟支付', {
+      confirmButtonText: '确认支付',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await updateOrderStatus(order.id, 'paid')
+    ElMessage.success('支付成功')
+    loadOrders()
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || e.detail || '支付失败')
+    }
+  }
+}
+
+async function handleCancel(order) {
+  try {
+    await ElMessageBox.confirm('确定要取消订单吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await updateOrderStatus(order.id, 'cancelled')
+    ElMessage.success('订单已取消')
+    loadOrders()
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || e.detail || '操作失败')
+    }
+  }
+}
+
+async function handleConfirm(order) {
+  try {
+    await ElMessageBox.confirm('确认已收到商品吗？', '提示', {
+      confirmButtonText: '确认收货',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await updateOrderStatus(order.id, 'completed')
+    ElMessage.success('确认收货成功')
+    loadOrders()
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || e.detail || '操作失败')
+    }
+  }
+}
+
+async function handleUpdateStatus(order, status) {
+  try {
+    await updateOrderStatus(order.id, status)
+    ElMessage.success('状态更新成功')
+    loadOrders()
+  } catch (e) {
+    ElMessage.error(e.message || e.detail || '操作失败')
+  }
+}
+
+function handleShip(order) {
+  shippingOrderId.value = order.id
+  shipForm.value = {
+    tracking_company: '',
+    tracking_number: ''
+  }
+  showShipDialog.value = true
+}
+
+async function submitShip() {
+  if (!shipForm.value.tracking_number) {
+    ElMessage.warning('请输入物流单号')
+    return
+  }
+  shipping.value = true
+  try {
+    await shipOrder(shippingOrderId.value, shipForm.value)
+    ElMessage.success('发货成功')
+    showShipDialog.value = false
+    loadOrders()
+  } catch (e) {
+    ElMessage.error(e.message || e.detail || '发货失败')
+  } finally {
+    shipping.value = false
   }
 }
 
@@ -284,6 +437,8 @@ function formatDate(dateStr) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 .order-id {
   font-weight: bold;
@@ -313,6 +468,28 @@ function formatDate(dateStr) {
 .order-address .address-content .phone {
   color: #666;
 }
+.order-tracking {
+  background: #e6f7ff;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+.order-tracking .tracking-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #1890ff;
+}
+.order-tracking .tracking-content {
+  display: flex;
+  gap: 15px;
+}
+.order-tracking .company {
+  color: #1890ff;
+}
+.order-tracking .number {
+  font-family: monospace;
+  color: #333;
+}
 .order-total {
   margin-top: 15px;
   text-align: right;
@@ -321,5 +498,12 @@ function formatDate(dateStr) {
   color: #f56c6c;
   font-size: 18px;
   font-weight: bold;
+}
+.order-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 </style>
