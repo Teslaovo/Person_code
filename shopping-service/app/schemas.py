@@ -187,6 +187,7 @@ class ReviewBase(BaseModel):
 
 
 class ReviewCreate(BaseModel):
+    user_id: int
     product_id: int
     order_id: int
     rating: int

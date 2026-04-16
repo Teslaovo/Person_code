@@ -95,6 +95,7 @@
               <el-button v-if="order.status === 'pending'" type="primary" size="small" @click="handlePay(order)">立即付款</el-button>
               <el-button v-if="order.status === 'pending'" size="small" @click="handleCancel(order)">取消订单</el-button>
               <el-button v-if="order.status === 'shipped'" type="success" size="small" @click="handleConfirm(order)">确认收货</el-button>
+              <el-button v-if="order.status === 'completed'" type="primary" size="small" @click="handleReview(order)">评价商品</el-button>
             </template>
             <template v-else>
               <el-button v-if="order.status === 'pending'" type="primary" size="small" @click="handleUpdateStatus(order, 'paid')">标记已付款</el-button>
@@ -123,13 +124,35 @@
         <el-button type="primary" :loading="shipping" @click="submitShip">确认发货</el-button>
       </template>
     </el-dialog>
+
+    <!-- 评价对话框 -->
+    <el-dialog v-model="showReviewDialog" title="评价商品" width="600px">
+      <el-form :model="reviewForm" label-width="80px">
+        <el-form-item v-for="(item, index) in pendingReviewItems" :key="index" :label="`${getProductName(item.product_id)}`">
+          <div class="review-item-form">
+            <el-rate v-model="item.rating" :max="5" show-score />
+            <el-input
+              v-model="item.content"
+              type="textarea"
+              :rows="3"
+              placeholder="分享您的购物体验..."
+              style="margin-top: 10px"
+            />
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showReviewDialog = false">取消</el-button>
+        <el-button type="primary" :loading="submittingReview" @click="submitReview">提交评价</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getOrders, getAllOrders, createOrder, getProducts, updateOrderStatus, shipOrder } from '@/api/shopping'
+import { getOrders, getAllOrders, createOrder, getProducts, updateOrderStatus, shipOrder, createReview, getPendingReviews } from '@/api/shopping'
 import { getAddresses, getUsers } from '@/api/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -151,6 +174,11 @@ const shipForm = ref({
   tracking_number: ''
 })
 const shippingOrderId = ref(null)
+
+const showReviewDialog = ref(false)
+const submittingReview = ref(false)
+const reviewOrderId = ref(null)
+const pendingReviewItems = ref([])
 
 const isAdmin = computed(() => currentUser.value?.role === 'admin')
 
@@ -384,6 +412,51 @@ async function submitShip() {
   }
 }
 
+async function handleReview(order) {
+  reviewOrderId.value = order.id
+  try {
+    const res = await getPendingReviews(currentUser.value.id, order.id)
+    if (!res.data || res.data.length === 0) {
+      ElMessage.info('该订单所有商品都已评价')
+      return
+    }
+    pendingReviewItems.value = res.data.map(item => ({
+      ...item,
+      rating: 5,
+      content: ''
+    }))
+    showReviewDialog.value = true
+  } catch (e) {
+    ElMessage.error(e.message || '获取待评价商品失败')
+  }
+}
+
+async function submitReview() {
+  if (!pendingReviewItems.value.length) {
+    ElMessage.warning('没有可评价的商品')
+    return
+  }
+  submittingReview.value = true
+  try {
+    for (const item of pendingReviewItems.value) {
+      await createReview({
+        user_id: currentUser.value.id,
+        product_id: item.product_id,
+        order_id: reviewOrderId.value,
+        rating: item.rating,
+        content: item.content || null
+      })
+    }
+    ElMessage.success('评价提交成功')
+    showReviewDialog.value = false
+    loadOrders()
+  } catch (e) {
+    ElMessage.error(e.message || e.detail || '评价提交失败')
+  } finally {
+    submittingReview.value = false
+  }
+}
+
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleString()
 }
@@ -505,5 +578,8 @@ function formatDate(dateStr) {
   gap: 10px;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+.review-item-form {
+  width: 100%;
 }
 </style>

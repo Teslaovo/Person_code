@@ -323,7 +323,7 @@ def get_pending_reviews(user_id: int, order_id: int, db: Session = Depends(get_d
 @router.post("/api/reviews")
 def create_review(review: schemas.ReviewCreate, db: Session = Depends(get_db)):
     try:
-        created = crud.create_review(db, user_id=review.user_id if hasattr(review, 'user_id') else review.user_id, review=review)
+        created = crud.create_review(db, user_id=review.user_id, review=review)
         return success_response(schemas.ReviewResponse.from_orm(created))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

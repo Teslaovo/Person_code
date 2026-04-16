@@ -105,6 +105,30 @@ export function shipOrder(id, data) {
   return api.post(`/api/orders/${id}/ship`, data)
 }
 
+export function getProductReviews(productId, params = {}) {
+  return api.get(`/api/reviews/product/${productId}`, { params })
+}
+
+export function getUserReviews(userId, params = {}) {
+  return api.get(`/api/reviews/user/${userId}`, { params })
+}
+
+export function getPendingReviews(userId, orderId) {
+  return api.get(`/api/reviews/pending/${userId}/${orderId}`)
+}
+
+export function createReview(data) {
+  return api.post('/api/reviews', data)
+}
+
+export function updateReview(id, data) {
+  return api.put(`/api/reviews/${id}`, data)
+}
+
+export function deleteReview(id) {
+  return api.delete(`/api/reviews/${id}`)
+}
+
 export function getFavorites(userId) {
   return api.get(`/api/favorites/${userId}`)
 }
