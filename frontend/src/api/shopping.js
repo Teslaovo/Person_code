@@ -169,3 +169,104 @@ export function markConversationRead(userId, otherUserId) {
 export function getConversations(userId) {
   return api.get(`/api/messages/conversations/${userId}`)
 }
+
+export function getProductSpecs(productId) {
+  return api.get(`/api/products/${productId}/specs`)
+}
+
+export function getProductSkus(productId) {
+  return api.get(`/api/products/${productId}/skus`)
+}
+
+export function getProductWithSkus(productId) {
+  return api.get(`/api/products/${productId}/with-skus`)
+}
+
+export function createProductSpec(productId, data) {
+  return api.post(`/api/products/${productId}/specs`, data)
+}
+
+export function updateSpec(specId, data) {
+  return api.put(`/api/specs/${specId}`, data)
+}
+
+export function deleteSpec(specId) {
+  return api.delete(`/api/specs/${specId}`)
+}
+
+export function createProductSku(productId, data) {
+  return api.post(`/api/products/${productId}/skus`, data)
+}
+
+export function updateSku(skuId, data) {
+  return api.put(`/api/skus/${skuId}`, data)
+}
+
+export function deleteSku(skuId) {
+  return api.delete(`/api/skus/${skuId}`)
+}
+
+export function getCoupons(params = {}) {
+  return api.get('/api/coupons', { params })
+}
+
+export function getCoupon(couponId) {
+  return api.get(`/api/coupons/${couponId}`)
+}
+
+export function createCoupon(data) {
+  return api.post('/api/coupons', data)
+}
+
+export function updateCoupon(couponId, data) {
+  return api.put(`/api/coupons/${couponId}`, data)
+}
+
+export function deleteCoupon(couponId) {
+  return api.delete(`/api/coupons/${couponId}`)
+}
+
+export function getUserCoupons(userId, status = null) {
+  const params = status ? { status } : {}
+  return api.get(`/api/user-coupons/${userId}`, { params })
+}
+
+export function claimCoupon(userId, couponId) {
+  return api.post('/api/user-coupons/claim', null, { params: { user_id: userId, coupon_id: couponId } })
+}
+
+export function useCoupon(userCouponId, orderId) {
+  return api.put(`/api/user-coupons/${userCouponId}/use`, null, { params: { order_id: orderId } })
+}
+
+export function calculateDiscount(couponId, totalAmount, productIds = null, category = null) {
+  const params = { coupon_id: couponId, total_amount: totalAmount }
+  if (productIds) params.product_ids = productIds
+  if (category) params.category = category
+  return api.post('/api/coupons/calculate', null, { params })
+}
+
+export function getAfterSales(params = {}) {
+  return api.get('/api/after-sales', { params })
+}
+
+export function getAfterSale(afterSaleId) {
+  return api.get(`/api/after-sales/${afterSaleId}`)
+}
+
+export function getUserAfterSales(userId) {
+  return api.get(`/api/after-sales/user/${userId}`)
+}
+
+export function getOrderAfterSales(orderId) {
+  return api.get(`/api/after-sales/order/${orderId}`)
+}
+
+export function createAfterSale(data) {
+  return api.post('/api/after-sales', data)
+}
+
+export function updateAfterSale(afterSaleId, data, approvedBy = null) {
+  const params = approvedBy ? { approved_by: approvedBy } : {}
+  return api.put(`/api/after-sales/${afterSaleId}`, data, { params })
+}

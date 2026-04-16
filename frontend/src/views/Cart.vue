@@ -31,15 +31,19 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="数量" width="160">
+        <el-table-column label="数量" width="200">
           <template #default="{ row }">
-            <el-input-number
-              v-model="row.quantity"
-              :min="1"
-              :max="row.product?.stock || 999"
-              @change="updateQuantity(row)"
-              size="large"
-            />
+            <div class="quantity-control">
+              <el-input-number
+                v-model="row.quantity"
+                :min="1"
+                :max="row.product?.stock || 999"
+                @change="updateQuantity(row)"
+                size="large"
+                controls-position="right"
+                class="quantity-input"
+              />
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="小计" width="140">
@@ -148,7 +152,6 @@ function toggleSelectAll() {
 
 async function updateQuantity(item) {
   await updateCart(item.id, { quantity: item.quantity })
-  ElMessage.success('已更新')
 }
 
 async function removeItem(item) {
@@ -238,6 +241,20 @@ function handleImageError(e) {
   color: #ff4d4f;
   font-size: 16px;
   font-weight: 600;
+}
+
+.quantity-control {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.quantity-input {
+  width: 140px;
+}
+
+.quantity-input :deep(.el-input__wrapper) {
+  padding-right: 36px !important;
 }
 
 .subtotal {

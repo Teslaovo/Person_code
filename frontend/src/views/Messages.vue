@@ -2,7 +2,14 @@
   <div class="messages">
     <div class="page-header">
       <h2>消息管理</h2>
-      <el-button type="primary" @click="refresh">刷新</el-button>
+      <div class="header-actions">
+        <el-badge :value="totalUnreadCount" :hidden="totalUnreadCount === 0" class="unread-badge">
+          <el-button @click="refresh">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </el-badge>
+      </div>
     </div>
 
     <div class="messages-container">
@@ -19,6 +26,7 @@
           <div class="user-info">
             <div class="user-name">用户：{{ userNames[userId]?.nickname || userNames[userId]?.username || userId }}</div>
           </div>
+          <el-badge v-if="unreadCounts[userId] > 0" :value="unreadCounts[userId]" class="unread-count" />
         </div>
         <el-empty v-if="conversationUsers.length === 0" description="暂无对话" :image-size="80" />
       </div>
@@ -46,10 +54,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMessages, sendMessage as sendMessageApi, getConversations } from '@/api/shopping'
+import { getMessages, sendMessage as sendMessageApi, getConversations, getUnreadCount, markConversationRead } from '@/api/shopping'
 import { getUserInfo } from '@/api/user'
+import { Refresh } from '@element-plus/icons-vue'
 
 const messages = ref([])
 const conversationUsers = ref([])
@@ -58,6 +67,12 @@ const inputMessage = ref('')
 const currentUser = ref(null)
 const messagesRef = ref(null)
 const userNames = ref({})
+const unreadCounts = ref({})
+let refreshTimer = null
+
+const totalUnreadCount = computed(() => {
+  return Object.values(unreadCounts.value).reduce((sum, count) => sum + count, 0)
+})
 
 function loadUser() {
   const saved = localStorage.getItem('currentUser')
@@ -76,8 +91,36 @@ async function loadUserInfo(userId) {
   }
 }
 
+async function loadUnreadCounts() {
+  if (!currentUser.value) return
+  try {
+    const res = await getUnreadCount(currentUser.value.id)
+    // 这里需要后端返回每个用户的未读数量，先简化处理
+    // 如果后端只返回总数，我们需要为每个对话加载未读
+    if (conversationUsers.value.length > 0) {
+      for (const userId of conversationUsers.value) {
+        await loadUserUnreadCount(userId)
+      }
+    }
+  } catch (e) {
+    console.error('Load unread counts failed', e)
+  }
+}
+
+async function loadUserUnreadCount(userId) {
+  if (!currentUser.value) return
+  try {
+    const res = await getMessages(currentUser.value.id, userId)
+    const msgs = res.data || []
+    unreadCounts.value[userId] = msgs.filter(m => m.to_user_id === currentUser.value.id && m.is_read === 0).length
+  } catch (e) {
+    console.error('Load user unread count failed', e)
+  }
+}
+
 async function refresh() {
   await loadConversations()
+  await loadUnreadCounts()
   if (selectedUserId.value) {
     await loadMessages()
   }
@@ -100,6 +143,15 @@ async function selectUser(userId) {
   selectedUserId.value = userId
   await loadUserInfo(userId)
   await loadMessages()
+  // 标记对话为已读
+  if (currentUser.value && userId) {
+    try {
+      await markConversationRead(currentUser.value.id, userId)
+      unreadCounts.value[userId] = 0
+    } catch (e) {
+      console.error('Mark conversation read failed', e)
+    }
+  }
 }
 
 async function loadMessages() {
@@ -148,6 +200,16 @@ function formatTime(time) {
 onMounted(() => {
   loadUser()
   loadConversations()
+  // 每3秒自动刷新一次
+  refreshTimer = setInterval(() => {
+    refresh()
+  }, 3000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
 })
 </script>
 
@@ -166,6 +228,17 @@ onMounted(() => {
 
 .page-header h2 {
   margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.unread-badge :deep(.el-badge__content) {
+  top: 2px;
+  right: 2px;
 }
 
 .messages-container {
@@ -231,6 +304,10 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: #333;
+}
+
+.unread-count {
+  margin-left: auto;
 }
 
 .chat-area {

@@ -482,3 +482,178 @@ def get_product_with_skus(db: Session, product_id: int):
     product.specs = get_specs_by_product(db, product_id)
     product.skus = get_skus_by_product(db, product_id)
     return product
+
+
+def get_coupons(db: Session, skip: int = 0, limit: int = 100, status: str = None):
+    query = db.query(models.Coupon)
+    if status:
+        query = query.filter(models.Coupon.status == status)
+    return query.offset(skip).limit(limit).all()
+
+
+def get_coupon(db: Session, coupon_id: int):
+    return db.query(models.Coupon).filter(models.Coupon.id == coupon_id).first()
+
+
+def create_coupon(db: Session, coupon: schemas.CouponCreate):
+    db_coupon = models.Coupon(**coupon.dict())
+    db.add(db_coupon)
+    db.commit()
+    db.refresh(db_coupon)
+    return db_coupon
+
+
+def update_coupon(db: Session, coupon_id: int, coupon: schemas.CouponUpdate):
+    db_coupon = get_coupon(db, coupon_id)
+    if not db_coupon:
+        return None
+    update_data = coupon.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_coupon, key, value)
+    db.commit()
+    db.refresh(db_coupon)
+    return db_coupon
+
+
+def delete_coupon(db: Session, coupon_id: int):
+    db_coupon = get_coupon(db, coupon_id)
+    if not db_coupon:
+        return None
+    db.delete(db_coupon)
+    db.commit()
+    return db_coupon
+
+
+def get_user_coupons(db: Session, user_id: int, status: str = None):
+    query = db.query(models.UserCoupon).filter(models.UserCoupon.user_id == user_id)
+    if status:
+        query = query.filter(models.UserCoupon.status == status)
+    return query.all()
+
+
+def get_user_coupon(db: Session, user_coupon_id: int):
+    return db.query(models.UserCoupon).filter(models.UserCoupon.id == user_coupon_id).first()
+
+
+def claim_coupon(db: Session, user_id: int, coupon_id: int):
+    from sqlalchemy.sql import func
+    coupon = get_coupon(db, coupon_id)
+    if not coupon:
+        raise ValueError("优惠券不存在")
+    if coupon.status != "active":
+        raise ValueError("优惠券不可领取")
+    if coupon.total_count > 0 and coupon.used_count >= coupon.total_count:
+        raise ValueError("优惠券已领完")
+    claimed = db.query(models.UserCoupon).filter(
+        models.UserCoupon.user_id == user_id,
+        models.UserCoupon.coupon_id == coupon_id
+    ).count()
+    if claimed >= coupon.per_limit:
+        raise ValueError(f"每人限领 {coupon.per_limit} 张")
+    db_user_coupon = models.UserCoupon(user_id=user_id, coupon_id=coupon_id, received_at=func.now())
+    db.add(db_user_coupon)
+    db.commit()
+    db.refresh(db_user_coupon)
+    return db_user_coupon
+
+
+def use_coupon(db: Session, user_coupon_id: int, order_id: int):
+    from sqlalchemy.sql import func
+    user_coupon = get_user_coupon(db, user_coupon_id)
+    if not user_coupon:
+        raise ValueError("用户优惠券不存在")
+    if user_coupon.status != "unused":
+        raise ValueError("优惠券已使用或已过期")
+    coupon = get_coupon(db, user_coupon.coupon_id)
+    if coupon:
+        coupon.used_count += 1
+    user_coupon.status = "used"
+    user_coupon.order_id = order_id
+    user_coupon.used_at = func.now()
+    db.commit()
+    db.refresh(user_coupon)
+    return user_coupon
+
+
+def calculate_discount(db: Session, coupon_id: int, total_amount: float, product_ids: list = None, category: str = None):
+    coupon = get_coupon(db, coupon_id)
+    if not coupon:
+        raise ValueError("优惠券不存在")
+    if coupon.status != "active":
+        raise ValueError("优惠券不可用")
+    if total_amount < coupon.min_amount:
+        raise ValueError(f"订单金额不满足最低消费 {coupon.min_amount} 元")
+    if coupon.category and category and coupon.category != category:
+        raise ValueError("优惠券不支持该商品分类")
+    if coupon.product_ids and product_ids:
+        allowed_ids = [int(i) for i in coupon.product_ids.split(",")]
+        if not any(pid in allowed_ids for pid in product_ids):
+            raise ValueError("优惠券不支持该商品")
+    if coupon.type == "fixed":
+        return min(coupon.value, total_amount)
+    elif coupon.type == "percent":
+        return total_amount * (coupon.value / 100)
+    return 0
+
+
+def get_after_sales(db: Session, skip: int = 0, limit: int = 100, status: str = None):
+    query = db.query(models.AfterSale)
+    if status:
+        query = query.filter(models.AfterSale.status == status)
+    return query.offset(skip).limit(limit).all()
+
+
+def get_after_sale(db: Session, after_sale_id: int):
+    return db.query(models.AfterSale).filter(models.AfterSale.id == after_sale_id).first()
+
+
+def get_after_sales_by_user(db: Session, user_id: int):
+    return db.query(models.AfterSale).filter(models.AfterSale.user_id == user_id).all()
+
+
+def get_after_sales_by_order(db: Session, order_id: int):
+    return db.query(models.AfterSale).filter(models.AfterSale.order_id == order_id).all()
+
+
+def create_after_sale(db: Session, user_id: int, after_sale: schemas.AfterSaleCreate):
+    order = get_order(db, after_sale.order_id)
+    if not order:
+        raise ValueError("订单不存在")
+    if order.user_id != user_id:
+        raise ValueError("无权操作该订单")
+    if order.status not in ["paid", "shipped", "completed"]:
+        raise ValueError("订单状态不支持售后")
+    db_after_sale = models.AfterSale(
+        user_id=user_id,
+        order_id=after_sale.order_id,
+        order_item_id=after_sale.order_item_id,
+        type=after_sale.type,
+        reason=after_sale.reason,
+        description=after_sale.description,
+        images=after_sale.images,
+        refund_amount=after_sale.refund_amount
+    )
+    db.add(db_after_sale)
+    db.commit()
+    db.refresh(db_after_sale)
+    return db_after_sale
+
+
+def update_after_sale(db: Session, after_sale_id: int, after_sale: schemas.AfterSaleUpdate, approved_by: int = None):
+    from sqlalchemy.sql import func
+    db_after_sale = get_after_sale(db, after_sale_id)
+    if not db_after_sale:
+        return None
+    if after_sale.status:
+        db_after_sale.status = after_sale.status
+        if after_sale.status == "approved":
+            db_after_sale.approved_at = func.now()
+            db_after_sale.approved_by = approved_by
+        elif after_sale.status == "rejected":
+            db_after_sale.reject_reason = after_sale.reject_reason
+    update_data = after_sale.dict(exclude_unset=True, exclude={"status", "reject_reason"})
+    for key, value in update_data.items():
+        setattr(db_after_sale, key, value)
+    db.commit()
+    db.refresh(db_after_sale)
+    return db_after_sale

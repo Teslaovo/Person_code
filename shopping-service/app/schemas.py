@@ -282,3 +282,109 @@ class ProductWithSKUResponse(ProductResponse):
     class Config:
         orm_mode = True
         from_attributes = True
+
+
+class CouponBase(BaseModel):
+    name: str
+    type: str = "fixed"
+    value: float
+    min_amount: float = 0
+    total_count: int = 0
+    per_limit: int = 1
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    category: Optional[str] = None
+    product_ids: Optional[str] = None
+
+
+class CouponCreate(BaseModel):
+    name: str
+    type: str = "fixed"
+    value: float
+    min_amount: float = 0
+    total_count: int = 0
+    per_limit: int = 1
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    category: Optional[str] = None
+    product_ids: Optional[str] = None
+
+
+class CouponUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    value: Optional[float] = None
+    min_amount: Optional[float] = None
+    status: Optional[str] = None
+
+
+class CouponResponse(CouponBase):
+    id: int
+    used_count: int = 0
+    status: str = "active"
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class UserCouponBase(BaseModel):
+    user_id: int
+    coupon_id: int
+
+
+class UserCouponCreate(BaseModel):
+    coupon_id: int
+
+
+class UserCouponResponse(UserCouponBase):
+    id: int
+    status: str = "unused"
+    order_id: Optional[int] = None
+    received_at: datetime
+    used_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class AfterSaleBase(BaseModel):
+    user_id: int
+    order_id: int
+    order_item_id: Optional[int] = None
+    type: str
+    reason: str
+    description: Optional[str] = None
+    images: Optional[str] = None
+    refund_amount: Optional[float] = None
+
+
+class AfterSaleCreate(BaseModel):
+    order_id: int
+    order_item_id: Optional[int] = None
+    type: str
+    reason: str
+    description: Optional[str] = None
+    images: Optional[str] = None
+    refund_amount: Optional[float] = None
+
+
+class AfterSaleUpdate(BaseModel):
+    status: Optional[str] = None
+    reject_reason: Optional[str] = None
+
+
+class AfterSaleResponse(AfterSaleBase):
+    id: int
+    status: str = "pending"
+    approved_at: Optional[datetime] = None
+    approved_by: Optional[int] = None
+    reject_reason: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
