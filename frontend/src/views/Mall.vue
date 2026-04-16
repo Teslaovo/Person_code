@@ -40,7 +40,7 @@
           v-for="product in hotProducts"
           :key="product.id"
           class="hot-product-item"
-          @click="scrollToProduct(product.id)"
+          @click="goToDetail(product.id)"
         >
           <img :src="product.image || defaultImage" class="hot-product-image" @error="handleImageError" />
           <div class="hot-product-info">
@@ -77,31 +77,28 @@
       <el-empty v-if="products.length === 0" description="没有找到相关商品" />
 
       <el-row :gutter="24" class="products-grid" v-else>
-        <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="product in products" :key="product.id" :ref="(el) => setProductRef(el, product.id)">
+        <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="product in products" :key="product.id">
           <product-card
             :product="product"
             :favorites="favorites"
             @add-to-cart="handleAddToCart"
             @buy-now="handleBuyNow"
             @toggle-favorite="handleToggleFavorite"
-            @view-detail="handleViewDetail"
+            @view-detail="goToDetail"
           />
         </el-col>
       </el-row>
     </div>
-
-    <product-detail v-model="showDetailDialog" :product="selectedProduct" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getProducts, getCategories, getHotProducts, addToCart, getFavorites, addFavorite, removeFavorite } from '@/api/shopping'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ShoppingBag, Search, Star } from '@element-plus/icons-vue'
 import ProductCard from '@/components/ProductCard.vue'
-import ProductDetail from '@/components/ProductDetail.vue'
 
 const router = useRouter()
 const products = ref([])
@@ -110,10 +107,7 @@ const categories = ref(['全部'])
 const currentCategory = ref('全部')
 const searchKeyword = ref('')
 const currentUser = ref(null)
-const productRefs = ref({})
 const favorites = ref([])
-const selectedProduct = ref(null)
-const showDetailDialog = ref(false)
 
 const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGN0ZGIi8+CjxwYXRoIGQ9Ik02MCAxMjBMODUgODVMMTE1IDExMEwxNDUgNzVMMTcwIDEyMEg2MFoiIGZpbGw9IiNEOUQzREMvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSIxNSIgZmlsbD0iI0Q5RDNEQyIvPgo8L3N2Zz4K'
 
@@ -176,17 +170,11 @@ function handleSearch() {
   loadProducts()
 }
 
-function setProductRef(el, productId) {
-  if (el) {
-    productRefs.value[productId] = el
+function goToDetail(productId) {
+  if (typeof productId === 'object' && productId.id) {
+    productId = productId.id
   }
-}
-
-function scrollToProduct(productId) {
-  const el = productRefs.value[productId]
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
+  router.push(`/product/${productId}`)
 }
 
 async function handleAddToCart(product) {
@@ -272,11 +260,6 @@ async function handleToggleFavorite(product) {
 
 function handleImageError(e) {
   e.target.src = defaultImage
-}
-
-function handleViewDetail(product) {
-  selectedProduct.value = product
-  showDetailDialog.value = true
 }
 </script>
 

@@ -9,11 +9,13 @@ import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import Favorites from '@/views/Favorites.vue'
 import Messages from '@/views/Messages.vue'
+import ProductDetail from '@/views/ProductDetail.vue'
 
 const routes = [
   { path: '/login', component: Login, meta: { requiresAuth: false } },
   { path: '/register', component: Register, meta: { requiresAuth: false } },
   { path: '/', component: Mall, meta: { requiresAuth: false } },
+  { path: '/product/:id', component: ProductDetail, meta: { requiresAuth: false } },
   { path: '/cart', component: Cart, meta: { requiresAuth: true } },
   { path: '/orders', component: Orders, meta: { requiresAuth: true } },
   { path: '/addresses', component: Addresses, meta: { requiresAuth: true } },
