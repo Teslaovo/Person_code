@@ -78,10 +78,19 @@
 
       <el-row :gutter="24" class="products-grid" v-else>
         <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="product in products" :key="product.id" :ref="(el) => setProductRef(el, product.id)">
-          <product-card :product="product" :favorites="favorites" @add-to-cart="handleAddToCart" @buy-now="handleBuyNow" @toggle-favorite="handleToggleFavorite" />
+          <product-card
+            :product="product"
+            :favorites="favorites"
+            @add-to-cart="handleAddToCart"
+            @buy-now="handleBuyNow"
+            @toggle-favorite="handleToggleFavorite"
+            @view-detail="handleViewDetail"
+          />
         </el-col>
       </el-row>
     </div>
+
+    <product-detail v-model="showDetailDialog" :product="selectedProduct" />
   </div>
 </template>
 
@@ -92,6 +101,7 @@ import { getProducts, getCategories, getHotProducts, addToCart, getFavorites, ad
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ShoppingBag, Search, Star } from '@element-plus/icons-vue'
 import ProductCard from '@/components/ProductCard.vue'
+import ProductDetail from '@/components/ProductDetail.vue'
 
 const router = useRouter()
 const products = ref([])
@@ -102,6 +112,8 @@ const searchKeyword = ref('')
 const currentUser = ref(null)
 const productRefs = ref({})
 const favorites = ref([])
+const selectedProduct = ref(null)
+const showDetailDialog = ref(false)
 
 const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGN0ZGIi8+CjxwYXRoIGQ9Ik02MCAxMjBMODUgODVMMTE1IDExMEwxNDUgNzVMMTcwIDEyMEg2MFoiIGZpbGw9IiNEOUQzREMvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSIxNSIgZmlsbD0iI0Q5RDNEQyIvPgo8L3N2Zz4K'
 
@@ -260,6 +272,11 @@ async function handleToggleFavorite(product) {
 
 function handleImageError(e) {
   e.target.src = defaultImage
+}
+
+function handleViewDetail(product) {
+  selectedProduct.value = product
+  showDetailDialog.value = true
 }
 </script>
 

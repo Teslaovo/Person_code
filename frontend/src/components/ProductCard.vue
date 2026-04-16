@@ -29,8 +29,6 @@
         立即购买
       </el-button>
     </div>
-
-    <product-detail v-model="showDetail" :product="product" />
   </el-card>
 </template>
 
@@ -39,10 +37,9 @@ import { ref, computed, onMounted } from 'vue'
 import { ShoppingCart, Star } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { addFavorite, removeFavorite, getFavorites } from '@/api/shopping'
-import ProductDetail from './ProductDetail.vue'
 
 const props = defineProps(['product', 'favorites'])
-const emit = defineEmits(['add-to-cart', 'buy-now', 'toggle-favorite'])
+const emit = defineEmits(['add-to-cart', 'buy-now', 'toggle-favorite', 'view-detail'])
 
 const isFavorited = computed(() => {
   if (!props.favorites) return false
@@ -50,7 +47,6 @@ const isFavorited = computed(() => {
 })
 
 const currentUser = ref(null)
-const showDetail = ref(false)
 
 onMounted(() => {
   const saved = localStorage.getItem('currentUser')
@@ -73,7 +69,7 @@ async function toggleFavorite() {
 }
 
 function handleViewDetail() {
-  showDetail.value = true
+  emit('view-detail', props.product)
 }
 
 const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGN0ZGIi8+CjxwYXRoIGQ9Ik02MCAxMjBMODUgODVMMTE1IDExMEwxNDUgNzVMMTcwIDEyMEg2MFoiIGZpbGw9IiNEOUQzREMvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSIxNSIgZmlsbD0iI0Q5RDNEQyIvPgo8L3N2Zz4K'
@@ -104,6 +100,7 @@ function handleImageError(e) {
   overflow: hidden;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
   position: relative;
+  cursor: pointer;
 }
 
 .favorite-btn {
@@ -170,6 +167,7 @@ function handleImageError(e) {
 
 .product-info {
   padding: 15px;
+  cursor: pointer;
 }
 
 .product-name {
