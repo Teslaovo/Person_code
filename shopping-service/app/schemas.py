@@ -8,10 +8,12 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     price: float
     image: Optional[str] = None
+    images: Optional[str] = None
     stock: int = 0
     category: Optional[str] = "其他"
     is_hot: Optional[int] = 0
     sales: Optional[int] = 0
+    has_sku: Optional[int] = 0
 
 
 class ProductCreate(ProductBase):
@@ -206,6 +208,76 @@ class ReviewResponse(ReviewBase):
     user_nickname: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class ProductSpecBase(BaseModel):
+    product_id: int
+    spec_name: str
+    spec_values: str
+
+
+class ProductSpecCreate(BaseModel):
+    spec_name: str
+    spec_values: str
+
+
+class ProductSpecUpdate(BaseModel):
+    spec_name: Optional[str] = None
+    spec_values: Optional[str] = None
+
+
+class ProductSpecResponse(ProductSpecBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class ProductSKUBase(BaseModel):
+    product_id: int
+    sku_name: str
+    spec_json: str
+    price: float
+    stock: int = 0
+    image: Optional[str] = None
+    sales: int = 0
+
+
+class ProductSKUCreate(BaseModel):
+    sku_name: str
+    spec_json: str
+    price: float
+    stock: int = 0
+    image: Optional[str] = None
+
+
+class ProductSKUUpdate(BaseModel):
+    sku_name: Optional[str] = None
+    spec_json: Optional[str] = None
+    price: Optional[float] = None
+    stock: Optional[int] = None
+    image: Optional[str] = None
+
+
+class ProductSKUResponse(ProductSKUBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class ProductWithSKUResponse(ProductResponse):
+    specs: List[ProductSpecResponse] = []
+    skus: List[ProductSKUResponse] = []
 
     class Config:
         orm_mode = True

@@ -378,3 +378,107 @@ def get_pending_review_products(db: Session, user_id: int, order_id: int):
         if item.product_id not in reviewed_product_ids:
             pending_items.append(item)
     return pending_items
+
+
+def get_specs_by_product(db: Session, product_id: int):
+    return db.query(models.ProductSpec).filter(models.ProductSpec.product_id == product_id).all()
+
+
+def get_spec(db: Session, spec_id: int):
+    return db.query(models.ProductSpec).filter(models.ProductSpec.id == spec_id).first()
+
+
+def create_spec(db: Session, product_id: int, spec: schemas.ProductSpecCreate):
+    db_spec = models.ProductSpec(product_id=product_id, **spec.dict())
+    db.add(db_spec)
+    db.commit()
+    db.refresh(db_spec)
+    db.query(models.Product).filter(models.Product.id == product_id).update({"has_sku": 1})
+    db.commit()
+    return db_spec
+
+
+def update_spec(db: Session, spec_id: int, spec: schemas.ProductSpecUpdate):
+    db_spec = get_spec(db, spec_id)
+    if not db_spec:
+        return None
+    update_data = spec.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_spec, key, value)
+    db.commit()
+    db.refresh(db_spec)
+    return db_spec
+
+
+def delete_spec(db: Session, spec_id: int):
+    db_spec = get_spec(db, spec_id)
+    if not db_spec:
+        return None
+    db.delete(db_spec)
+    db.commit()
+    remaining = db.query(models.ProductSpec).filter(models.ProductSpec.product_id == db_spec.product_id).count()
+    if remaining == 0:
+        db.query(models.Product).filter(models.Product.id == db_spec.product_id).update({"has_sku": 0})
+        db.commit()
+    return db_spec
+
+
+def get_skus_by_product(db: Session, product_id: int):
+    return db.query(models.ProductSKU).filter(models.ProductSKU.product_id == product_id).all()
+
+
+def get_sku(db: Session, sku_id: int):
+    return db.query(models.ProductSKU).filter(models.ProductSKU.id == sku_id).first()
+
+
+def create_sku(db: Session, product_id: int, sku: schemas.ProductSKUCreate):
+    db_sku = models.ProductSKU(product_id=product_id, **sku.dict())
+    db.add(db_sku)
+    db.commit()
+    db.refresh(db_sku)
+    update_product_total_stock(db, product_id)
+    return db_sku
+
+
+def update_sku(db: Session, sku_id: int, sku: schemas.ProductSKUUpdate):
+    db_sku = get_sku(db, sku_id)
+    if not db_sku:
+        return None
+    update_data = sku.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_sku, key, value)
+    db.commit()
+    db.refresh(db_sku)
+    update_product_total_stock(db, db_sku.product_id)
+    return db_sku
+
+
+def delete_sku(db: Session, sku_id: int):
+    db_sku = get_sku(db, sku_id)
+    if not db_sku:
+        return None
+    product_id = db_sku.product_id
+    db.delete(db_sku)
+    db.commit()
+    update_product_total_stock(db, product_id)
+    return db_sku
+
+
+def update_product_total_stock(db: Session, product_id: int):
+    skus = get_skus_by_product(db, product_id)
+    total_stock = sum([s.stock for s in skus]) if skus else 0
+    product = get_product(db, product_id)
+    if product:
+        product.stock = total_stock
+        db.commit()
+        db.refresh(product)
+    return product
+
+
+def get_product_with_skus(db: Session, product_id: int):
+    product = get_product(db, product_id)
+    if not product:
+        return None
+    product.specs = get_specs_by_product(db, product_id)
+    product.skus = get_skus_by_product(db, product_id)
+    return product

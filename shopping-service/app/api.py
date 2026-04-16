@@ -343,3 +343,76 @@ def delete_review(review_id: int, db: Session = Depends(get_db)):
     if deleted is None:
         raise HTTPException(status_code=404, detail="Review not found")
     return success_response(schemas.ReviewResponse.from_orm(deleted))
+
+
+@router.get("/api/products/{product_id}/specs")
+def get_product_specs(product_id: int, db: Session = Depends(get_db)):
+    specs = crud.get_specs_by_product(db, product_id=product_id)
+    return success_response([schemas.ProductSpecResponse.from_orm(s) for s in specs])
+
+
+@router.get("/api/products/{product_id}/skus")
+def get_product_skus(product_id: int, db: Session = Depends(get_db)):
+    skus = crud.get_skus_by_product(db, product_id=product_id)
+    return success_response([schemas.ProductSKUResponse.from_orm(s) for s in skus])
+
+
+@router.get("/api/products/{product_id}/with-skus")
+def get_product_with_skus(product_id: int, db: Session = Depends(get_db)):
+    product = crud.get_product_with_skus(db, product_id=product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    product_dict = schemas.ProductResponse.from_orm(product).dict()
+    product_dict["specs"] = [schemas.ProductSpecResponse.from_orm(s) for s in product.specs]
+    product_dict["skus"] = [schemas.ProductSKUResponse.from_orm(s) for s in product.skus]
+    return success_response(product_dict)
+
+
+@router.post("/api/products/{product_id}/specs")
+def create_spec(product_id: int, spec: schemas.ProductSpecCreate, db: Session = Depends(get_db)):
+    product = crud.get_product(db, product_id=product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    created = crud.create_spec(db, product_id=product_id, spec=spec)
+    return success_response(schemas.ProductSpecResponse.from_orm(created))
+
+
+@router.put("/api/specs/{spec_id}")
+def update_spec(spec_id: int, spec: schemas.ProductSpecUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_spec(db, spec_id=spec_id, spec=spec)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Spec not found")
+    return success_response(schemas.ProductSpecResponse.from_orm(updated))
+
+
+@router.delete("/api/specs/{spec_id}")
+def delete_spec(spec_id: int, db: Session = Depends(get_db)):
+    deleted = crud.delete_spec(db, spec_id=spec_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="Spec not found")
+    return success_response(schemas.ProductSpecResponse.from_orm(deleted))
+
+
+@router.post("/api/products/{product_id}/skus")
+def create_sku(product_id: int, sku: schemas.ProductSKUCreate, db: Session = Depends(get_db)):
+    product = crud.get_product(db, product_id=product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    created = crud.create_sku(db, product_id=product_id, sku=sku)
+    return success_response(schemas.ProductSKUResponse.from_orm(created))
+
+
+@router.put("/api/skus/{sku_id}")
+def update_sku(sku_id: int, sku: schemas.ProductSKUUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_sku(db, sku_id=sku_id, sku=sku)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="SKU not found")
+    return success_response(schemas.ProductSKUResponse.from_orm(updated))
+
+
+@router.delete("/api/skus/{sku_id}")
+def delete_sku(sku_id: int, db: Session = Depends(get_db)):
+    deleted = crud.delete_sku(db, sku_id=sku_id)
+    if deleted is None:
+        raise HTTPException(status_code=404, detail="SKU not found")
+    return success_response(schemas.ProductSKUResponse.from_orm(deleted))
