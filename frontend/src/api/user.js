@@ -86,3 +86,8 @@ export function updateAddress(id, data) {
 export function deleteAddress(id) {
   return api.delete(`/api/addresses/${id}`)
 }
+
+// 获取用户基本信息
+export function getUserInfo(id) {
+  return api.get(`/api/users/info/${id}`)
+}

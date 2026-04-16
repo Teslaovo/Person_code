@@ -15,9 +15,9 @@
           :class="{ active: selectedUserId === userId }"
           @click="selectUser(userId)"
         >
-          <div class="user-avatar">{{ String(userId).charAt(0) }}</div>
+          <div class="user-avatar">{{ (userNames[userId]?.nickname || userNames[userId]?.username || 'U').charAt(0) }}</div>
           <div class="user-info">
-            <div class="user-name">用户 {{ userId }}</div>
+            <div class="user-name">用户：{{ userNames[userId]?.nickname || userNames[userId]?.username || userId }}</div>
           </div>
         </div>
         <el-empty v-if="conversationUsers.length === 0" description="暂无对话" :image-size="80" />
@@ -25,7 +25,7 @@
 
       <div class="chat-area" v-if="selectedUserId">
         <div class="chat-header">
-          <span>与用户 {{ selectedUserId }} 的对话</span>
+          <span>与用户：{{ userNames[selectedUserId]?.nickname || userNames[selectedUserId]?.username || selectedUserId }} 的对话</span>
         </div>
         <div class="chat-messages" ref="messagesRef">
           <div v-for="msg in messages" :key="msg.id" class="message" :class="msg.from_user_id === currentUser.id ? 'sent' : 'received'">
@@ -49,6 +49,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMessages, sendMessage as sendMessageApi, getConversations } from '@/api/shopping'
+import { getUserInfo } from '@/api/user'
 
 const messages = ref([])
 const conversationUsers = ref([])
@@ -56,11 +57,22 @@ const selectedUserId = ref(null)
 const inputMessage = ref('')
 const currentUser = ref(null)
 const messagesRef = ref(null)
+const userNames = ref({})
 
 function loadUser() {
   const saved = localStorage.getItem('currentUser')
   if (saved) {
     currentUser.value = JSON.parse(saved)
+  }
+}
+
+async function loadUserInfo(userId) {
+  if (userNames.value[userId]) return
+  try {
+    const res = await getUserInfo(userId)
+    userNames.value[userId] = res.data
+  } catch (e) {
+    console.error('Load user info failed', e)
   }
 }
 
@@ -76,6 +88,9 @@ async function loadConversations() {
   try {
     const res = await getConversations(currentUser.value.id)
     conversationUsers.value = res.data || []
+    for (const userId of conversationUsers.value) {
+      await loadUserInfo(userId)
+    }
   } catch (e) {
     console.error('Load conversations failed', e)
   }
@@ -83,6 +98,7 @@ async function loadConversations() {
 
 async function selectUser(userId) {
   selectedUserId.value = userId
+  await loadUserInfo(userId)
   await loadMessages()
 }
 
