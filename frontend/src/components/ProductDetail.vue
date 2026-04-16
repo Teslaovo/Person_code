@@ -53,27 +53,25 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { getProductReviews } from '@/api/shopping'
-import { ElMessage } from 'element-plus'
 
 const props = defineProps(['modelValue', 'product'])
 const emit = defineEmits(['update:modelValue'])
 
-const visible = ref(false)
 const reviews = ref([])
+
+const visible = computed({
+  get: () => props.modelValue,
+  set: (val) => emit('update:modelValue', val)
+})
 
 const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGN0ZGIi8+CjxwYXRoIGQ9Ik02MCAxMjBMODUgODVMMTE1IDExMEwxNDUgNzVMMTcwIDEyMEg2MFoiIGZpbGw9IiNEOUQzREMvPgo8Y2lyY2xlIGN4PSI4NSIgY3k9IjgwIiByPSIxNSIgZmlsbD0iI0Q5RDNEQyIvPgo8L3N2Zz4K'
 
 watch(() => props.modelValue, (val) => {
-  visible.value = val
   if (val && props.product) {
     loadReviews()
   }
-})
-
-watch(visible, (val) => {
-  emit('update:modelValue', val)
 })
 
 async function loadReviews() {
