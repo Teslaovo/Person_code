@@ -170,10 +170,41 @@ function setProductRef(el, productId) {
   }
 }
 
-function scrollToProduct(productId) {
+async function scrollToProduct(productId) {
+  // 检查商品是否在当前列表中
+  const productInList = products.value.find(p => p.id === productId)
+
+  if (!productInList) {
+    // 如果商品不在当前列表，切换到全部分类并清除搜索
+    currentCategory.value = '全部'
+    searchKeyword.value = ''
+    await loadProducts()
+  }
+
+  // 等待 DOM 更新完成
+  await nextTick()
+
+  // 获取元素并滚动
   const el = productRefs.value[productId]
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (el && el.$el) {
+    // el 是 Vue 组件实例，需要获取实际 DOM 元素
+    el.$el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // 添加高亮效果提示用户
+    highlightProduct(el.$el)
+  }
+}
+
+function highlightProduct(el) {
+  const card = el.querySelector('.product-card')
+  if (card) {
+    card.style.transition = 'box-shadow 0.3s ease, transform 0.3s ease'
+    card.style.boxShadow = '0 0 20px rgba(102, 126, 234, 0.6)'
+    card.style.transform = 'scale(1.02)'
+
+    setTimeout(() => {
+      card.style.boxShadow = ''
+      card.style.transform = ''
+    }, 2000)
   }
 }
 
@@ -401,11 +432,13 @@ function handleImageError(e) {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 2px solid transparent;
 }
 
 .hot-product-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-color: #667eea;
 }
 
 .hot-product-image {
