@@ -58,6 +58,44 @@ def get_hot_products(limit: int = 10, db: Session = Depends(get_db)):
     return success_response([schemas.ProductResponse.from_orm(p) for p in products])
 
 
+@router.get("/api/products/low-stock")
+def get_low_stock_products(db: Session = Depends(get_db)):
+    products = crud.get_low_stock_products(db)
+    result = []
+    for p in products:
+        result.append({
+            "id": p.id,
+            "name": p.name,
+            "stock": p.stock,
+            "low_stock_threshold": p.low_stock_threshold,
+            "price": p.price,
+            "category": p.category or "其他",
+            "is_hot": p.is_hot or 0,
+            "is_active": p.is_active or 1,
+            "sales": p.sales or 0
+        })
+    return success_response(result)
+
+
+@router.get("/api/products/out-of-stock")
+def get_out_of_stock_products(db: Session = Depends(get_db)):
+    products = crud.get_out_of_stock_products(db)
+    result = []
+    for p in products:
+        result.append({
+            "id": p.id,
+            "name": p.name,
+            "stock": p.stock,
+            "low_stock_threshold": p.low_stock_threshold or 10,
+            "price": p.price,
+            "category": p.category or "其他",
+            "is_hot": p.is_hot or 0,
+            "is_active": p.is_active or 1,
+            "sales": p.sales or 0
+        })
+    return success_response(result)
+
+
 @router.get("/api/products/{product_id}")
 def get_product(product_id: int, db: Session = Depends(get_db)):
     product = crud.get_product(db, product_id=product_id)
@@ -137,12 +175,18 @@ async def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)
         # 用户服务不可用时，在开发环境中继续执行
         import logging
         logging.warning(f"User service verification failed: {e}, continuing anyway")
-    total_price = 0.0
-    for item in order.items:
-        product = crud.get_product(db, item.product_id)
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
-        total_price += product.price * item.quantity
+
+    # 如果前端传了优惠后的总价，使用它；否则自己计算
+    if order.total_price is not None and order.total_price >= 0:
+        total_price = order.total_price
+    else:
+        total_price = 0.0
+        for item in order.items:
+            product = crud.get_product(db, item.product_id)
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
+            total_price += product.price * item.quantity
+
     address_data = {
         "name": order.address_name,
         "phone": order.address_phone,
@@ -542,3 +586,157 @@ def update_after_sale(after_sale_id: int, after_sale: schemas.AfterSaleUpdate, a
     if updated is None:
         raise HTTPException(status_code=404, detail="After-sale not found")
     return success_response(schemas.AfterSaleResponse.from_orm(updated))
+
+
+@router.get("/api/stock-alerts")
+def get_stock_alerts(is_resolved: int = None, db: Session = Depends(get_db)):
+    alerts = crud.get_stock_alerts(db, is_resolved=is_resolved)
+    return success_response([schemas.StockAlertResponse.from_orm(a) for a in alerts])
+
+
+@router.post("/api/stock-alerts/{alert_id}/resolve")
+def resolve_stock_alert(alert_id: int, db: Session = Depends(get_db)):
+    resolved = crud.resolve_stock_alert(db, alert_id=alert_id)
+    if resolved is None:
+        raise HTTPException(status_code=404, detail="Stock alert not found")
+    return success_response(schemas.StockAlertResponse.from_orm(resolved))
+
+
+@router.post("/api/search/history")
+def add_search_history(keyword: str, user_id: int = None, db: Session = Depends(get_db)):
+    history = crud.add_search_history(db, keyword=keyword, user_id=user_id)
+    return success_response(schemas.SearchHistoryResponse.from_orm(history))
+
+
+@router.get("/api/search/history/{user_id}")
+def get_search_history(user_id: int, limit: int = 10, db: Session = Depends(get_db)):
+    histories = crud.get_search_history(db, user_id=user_id, limit=limit)
+    return success_response([schemas.SearchHistoryResponse.from_orm(h) for h in histories])
+
+
+@router.get("/api/search/hot")
+def get_hot_searches(limit: int = 10, db: Session = Depends(get_db)):
+    hot_searches = crud.get_hot_searches(db, limit=limit)
+    return success_response([schemas.HotSearchResponse.from_orm(h) for h in hot_searches])
+
+
+@router.get("/api/search/suggestions")
+def get_search_suggestions(keyword: str, limit: int = 10, db: Session = Depends(get_db)):
+    suggestions = crud.get_search_suggestions(db, keyword=keyword, limit=limit)
+    return success_response(suggestions)
+
+
+@router.get("/api/products/filter")
+def get_products_filtered(
+    min_price: float = None,
+    max_price: float = None,
+    min_sales: int = None,
+    category: str = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    products = crud.get_products_by_filter(
+        db, min_price=min_price, max_price=max_price,
+        min_sales=min_sales, category=category,
+        skip=skip, limit=limit
+    )
+    return success_response([schemas.ProductResponse.from_orm(p) for p in products])
+
+
+@router.put("/api/products/batch/status")
+def batch_update_products_status(product_ids: str, is_active: int, db: Session = Depends(get_db)):
+    ids = [int(pid) for pid in product_ids.split(",")]
+    crud.batch_update_products_status(db, product_ids=ids, is_active=is_active)
+    return success_response(None)
+
+
+@router.get("/api/promotions")
+def get_promotions(promotion_type: str = None, status: str = None, db: Session = Depends(get_db)):
+    promotions = crud.get_promotions(db, promotion_type=promotion_type, status=status)
+    return success_response([schemas.PromotionResponse.from_orm(p) for p in promotions])
+
+
+@router.get("/api/promotions/{promotion_id}")
+def get_promotion(promotion_id: int, db: Session = Depends(get_db)):
+    promotion = crud.get_promotion(db, promotion_id=promotion_id)
+    if promotion is None:
+        raise HTTPException(status_code=404, detail="Promotion not found")
+    return success_response(schemas.PromotionResponse.from_orm(promotion))
+
+
+@router.post("/api/promotions")
+def create_promotion(promotion: schemas.PromotionCreate, db: Session = Depends(get_db)):
+    created = crud.create_promotion(db=db, promotion=promotion)
+    return success_response(schemas.PromotionResponse.from_orm(created))
+
+
+@router.put("/api/promotions/{promotion_id}")
+def update_promotion(promotion_id: int, promotion: schemas.PromotionUpdate, db: Session = Depends(get_db)):
+    updated = crud.update_promotion(db, promotion_id=promotion_id, promotion=promotion)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Promotion not found")
+    return success_response(schemas.PromotionResponse.from_orm(updated))
+
+
+@router.delete("/api/promotions/{promotion_id}")
+def delete_promotion(promotion_id: int, db: Session = Depends(get_db)):
+    success = crud.delete_promotion(db, promotion_id=promotion_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Promotion not found")
+    return success_response(None)
+
+
+@router.get("/api/promotions/active")
+def get_active_promotions(db: Session = Depends(get_db)):
+    promotions = crud.get_active_promotions(db)
+    return success_response([schemas.PromotionResponse.from_orm(p) for p in promotions])
+
+
+@router.get("/api/products/{product_id}/recommendations")
+def get_product_recommendations(product_id: int, rec_type: str = None, db: Session = Depends(get_db)):
+    recs = crud.get_product_recommendations(db, product_id=product_id, rec_type=rec_type)
+    result = []
+    for rec in recs:
+        rec_dict = schemas.ProductRecommendationResponse.from_orm(rec).dict()
+        product = crud.get_product(db, rec.recommended_product_id)
+        if product:
+            rec_dict["product"] = schemas.ProductResponse.from_orm(product)
+        result.append(rec_dict)
+    return success_response(result)
+
+
+@router.post("/api/products/recommendations")
+def add_product_recommendation(recommendation: schemas.ProductRecommendationCreate, db: Session = Depends(get_db)):
+    created = crud.add_product_recommendation(db=db, recommendation=recommendation)
+    return success_response(schemas.ProductRecommendationResponse.from_orm(created))
+
+
+@router.get("/api/stats/sales")
+def get_sales_stats(period: str = "daily", db: Session = Depends(get_db)):
+    stats = crud.get_sales_stats(db, period=period)
+    return success_response(stats)
+
+
+@router.get("/api/stats/products/rank")
+def get_product_sales_rank(limit: int = 10, db: Session = Depends(get_db)):
+    ranks = crud.get_product_sales_rank(db, limit=limit)
+    return success_response(ranks)
+
+
+@router.get("/api/stats/users/growth")
+def get_user_growth_stats(days: int = 30, db: Session = Depends(get_db)):
+    stats = crud.get_user_growth_stats(db, days=days)
+    return success_response(stats)
+
+
+@router.get("/api/stats/orders/conversion")
+def get_order_conversion_stats(db: Session = Depends(get_db)):
+    stats = crud.get_order_conversion_stats(db)
+    return success_response(stats)
+
+
+@router.get("/api/stats/summary")
+def get_summary_stats(db: Session = Depends(get_db)):
+    stats = crud.get_summary_stats(db)
+    return success_response(stats)

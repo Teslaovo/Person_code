@@ -10,10 +10,13 @@ class ProductBase(BaseModel):
     image: Optional[str] = None
     images: Optional[str] = None
     stock: int = 0
+    low_stock_threshold: Optional[int] = 10
     category: Optional[str] = "其他"
     is_hot: Optional[int] = 0
+    is_active: Optional[int] = 1
     sales: Optional[int] = 0
     has_sku: Optional[int] = 0
+    tags: Optional[str] = None
 
 
 class ProductCreate(ProductBase):
@@ -26,15 +29,19 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     image: Optional[str] = None
     stock: Optional[int] = None
+    low_stock_threshold: Optional[int] = None
     category: Optional[str] = None
     is_hot: Optional[int] = None
+    is_active: Optional[int] = None
     sales: Optional[int] = None
+    tags: Optional[str] = None
 
 
 class ProductResponse(ProductBase):
     id: int
     category: str = "其他"
     is_hot: int = 0
+    is_active: int = 1
     sales: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -111,6 +118,7 @@ class OrderCreate(BaseModel):
     address_city: Optional[str] = None
     address_district: Optional[str] = None
     address_detail: Optional[str] = None
+    total_price: Optional[float] = None
 
 
 class OrderUpdateStatus(BaseModel):
@@ -388,3 +396,161 @@ class AfterSaleResponse(AfterSaleBase):
     class Config:
         orm_mode = True
         from_attributes = True
+
+
+class SearchHistoryBase(BaseModel):
+    user_id: Optional[int] = None
+    keyword: str
+
+
+class SearchHistoryCreate(SearchHistoryBase):
+    pass
+
+
+class SearchHistoryResponse(SearchHistoryBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class HotSearchBase(BaseModel):
+    keyword: str
+    search_count: Optional[int] = 0
+    is_active: Optional[int] = 1
+    sort_order: Optional[int] = 0
+
+
+class HotSearchCreate(HotSearchBase):
+    pass
+
+
+class HotSearchUpdate(BaseModel):
+    keyword: Optional[str] = None
+    search_count: Optional[int] = None
+    is_active: Optional[int] = None
+    sort_order: Optional[int] = None
+
+
+class HotSearchResponse(HotSearchBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class StockAlertBase(BaseModel):
+    product_id: int
+    sku_id: Optional[int] = None
+    alert_type: str = "low_stock"
+    stock_before: Optional[int] = None
+    stock_after: Optional[int] = None
+
+
+class StockAlertCreate(StockAlertBase):
+    pass
+
+
+class StockAlertUpdate(BaseModel):
+    is_resolved: Optional[int] = None
+
+
+class StockAlertResponse(StockAlertBase):
+    id: int
+    is_resolved: int = 0
+    resolved_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class PromotionBase(BaseModel):
+    name: str
+    type: str
+    status: Optional[str] = "active"
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    config: Optional[str] = None
+    product_ids: Optional[str] = None
+    category: Optional[str] = None
+
+
+class PromotionCreate(PromotionBase):
+    pass
+
+
+class PromotionUpdate(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    config: Optional[str] = None
+    product_ids: Optional[str] = None
+    category: Optional[str] = None
+
+
+class PromotionResponse(PromotionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class ProductRecommendationBase(BaseModel):
+    product_id: int
+    recommended_product_id: int
+    type: Optional[str] = "frequently_bought_together"
+    weight: Optional[int] = 0
+
+
+class ProductRecommendationCreate(ProductRecommendationBase):
+    pass
+
+
+class ProductRecommendationUpdate(BaseModel):
+    weight: Optional[int] = None
+
+
+class ProductRecommendationResponse(ProductRecommendationBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class SalesStats(BaseModel):
+    period: str
+    total_orders: int
+    total_sales: float
+    total_products: int
+
+
+class ProductSalesRank(BaseModel):
+    product_id: int
+    product_name: str
+    sales_count: int
+    sales_amount: float
+
+
+class UserGrowthStats(BaseModel):
+    date: str
+    new_users: int
+    total_users: int
+
+
+class OrderConversionStats(BaseModel):
+    total_visits: int
+    cart_adds: int
+    orders_created: int
+    orders_paid: int
+    conversion_rate: float

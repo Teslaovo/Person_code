@@ -270,3 +270,101 @@ export function updateAfterSale(afterSaleId, data, approvedBy = null) {
   const params = approvedBy ? { approved_by: approvedBy } : {}
   return api.put(`/api/after-sales/${afterSaleId}`, data, { params })
 }
+
+export function getLowStockProducts() {
+  return api.get('/api/products/low-stock')
+}
+
+export function getOutOfStockProducts() {
+  return api.get('/api/products/out-of-stock')
+}
+
+export function getStockAlerts(isResolved = null) {
+  const params = isResolved !== null ? { is_resolved: isResolved } : {}
+  return api.get('/api/stock-alerts', { params })
+}
+
+export function resolveStockAlert(alertId) {
+  return api.post(`/api/stock-alerts/${alertId}/resolve`)
+}
+
+export function addSearchHistory(keyword, userId = null) {
+  const params = { keyword }
+  if (userId !== null) params.user_id = userId
+  return api.post('/api/search/history', null, { params })
+}
+
+export function getSearchHistory(userId, limit = 10) {
+  return api.get(`/api/search/history/${userId}`, { params: { limit } })
+}
+
+export function getHotSearches(limit = 10) {
+  return api.get('/api/search/hot', { params: { limit } })
+}
+
+export function getSearchSuggestions(keyword, limit = 10) {
+  return api.get('/api/search/suggestions', { params: { keyword, limit } })
+}
+
+export function getProductsFiltered(params = {}) {
+  return api.get('/api/products/filter', { params })
+}
+
+export function batchUpdateProductsStatus(productIds, isActive) {
+  return api.put('/api/products/batch/status', null, {
+    params: { product_ids: productIds.join(','), is_active: isActive }
+  })
+}
+
+export function getPromotions(params = {}) {
+  return api.get('/api/promotions', { params })
+}
+
+export function getPromotion(promotionId) {
+  return api.get(`/api/promotions/${promotionId}`)
+}
+
+export function createPromotion(data) {
+  return api.post('/api/promotions', data)
+}
+
+export function updatePromotion(promotionId, data) {
+  return api.put(`/api/promotions/${promotionId}`, data)
+}
+
+export function deletePromotion(promotionId) {
+  return api.delete(`/api/promotions/${promotionId}`)
+}
+
+export function getActivePromotions() {
+  return api.get('/api/promotions/active')
+}
+
+export function getProductRecommendations(productId, recType = null) {
+  const params = recType ? { rec_type: recType } : {}
+  return api.get(`/api/products/${productId}/recommendations`, { params })
+}
+
+export function addProductRecommendation(data) {
+  return api.post('/api/products/recommendations', data)
+}
+
+export function getSalesStats(period = 'daily') {
+  return api.get('/api/stats/sales', { params: { period } })
+}
+
+export function getProductSalesRank(limit = 10) {
+  return api.get('/api/stats/products/rank', { params: { limit } })
+}
+
+export function getUserGrowthStats(days = 30) {
+  return api.get('/api/stats/users/growth', { params: { days } })
+}
+
+export function getOrderConversionStats() {
+  return api.get('/api/stats/orders/conversion')
+}
+
+export function getSummaryStats() {
+  return api.get('/api/stats/summary')
+}

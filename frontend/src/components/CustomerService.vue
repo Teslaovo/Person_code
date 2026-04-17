@@ -26,7 +26,6 @@
 <script setup>
 import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Close, Service } from '@element-plus/icons-vue'
 import { getMessages, sendMessage as sendMessageApi, getUnreadCount, markConversationRead } from '@/api/shopping'
 
 const showChat = ref(false)

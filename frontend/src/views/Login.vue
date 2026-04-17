@@ -17,7 +17,7 @@
             v-model="form.username"
             placeholder="请输入用户名"
             size="large"
-            :prefix-icon="User"
+            prefix-icon="User"
           />
         </el-form-item>
         <el-form-item prop="password">
@@ -26,7 +26,7 @@
             type="password"
             placeholder="请输入密码"
             size="large"
-            :prefix-icon="Lock"
+            prefix-icon="Lock"
             show-password
             @keyup.enter="handleLogin"
           />
@@ -48,7 +48,6 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, ShoppingBag } from '@element-plus/icons-vue'
 import { login } from '@/api/user'
 
 const router = useRouter()

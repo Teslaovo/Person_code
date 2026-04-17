@@ -11,12 +11,22 @@
       <div class="out-of-stock" v-if="product.stock === 0">
         暂时缺货
       </div>
+      <div class="promotion-tag" v-if="activePromotion">
+        {{ getPromotionTag(activePromotion) }}
+      </div>
     </div>
     <div class="product-info" @click="handleViewDetail">
       <h3 class="product-name">{{ product.name }}</h3>
       <p class="description">{{ product.description }}</p>
       <div class="price-row">
-        <span class="price">¥{{ product.price.toFixed(2) }}</span>
+        <div class="price-wrapper">
+          <span class="price" :class="{ 'promotion-price': showPromotionPrice }">
+            ¥{{ displayPrice.toFixed(2) }}
+          </span>
+          <span class="original-price" v-if="showPromotionPrice">
+            ¥{{ product.price.toFixed(2) }}
+          </span>
+        </div>
         <span class="stock">库存{{ product.stock }}</span>
       </div>
     </div>
@@ -34,17 +44,91 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ShoppingCart, Star } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { addFavorite, removeFavorite, getFavorites } from '@/api/shopping'
 
-const props = defineProps(['product', 'favorites'])
+const props = defineProps(['product', 'favorites', 'activePromotion'])
 const emit = defineEmits(['add-to-cart', 'buy-now', 'toggle-favorite', 'view-detail'])
 
 const isFavorited = computed(() => {
   if (!props.favorites) return false
   return props.favorites.some(f => f.product_id === props.product.id)
 })
+
+const displayPrice = computed(() => {
+  console.log('=== ProductCard displayPrice ===')
+  console.log('Product:', props.product.name, 'id:', props.product.id, 'original price:', props.product.price)
+  console.log('Active promotion:', props.activePromotion)
+
+  if (!props.activePromotion) {
+    console.log('Result: No active promotion, using original price')
+    return props.product.price
+  }
+
+  // 满减活动不修改商品单价，只显示标签
+  if (props.activePromotion.type === 'fullreduce') {
+    console.log('Result: Full reduce promotion, not changing unit price')
+    return props.product.price
+  }
+
+  try {
+    console.log('Promotion config string:', props.activePromotion.config)
+    const config = JSON.parse(props.activePromotion.config || '{}')
+    console.log('Parsed config:', config)
+    console.log('Promotion type:', props.activePromotion.type)
+
+    switch (props.activePromotion.type) {
+      case 'flashsale':
+        console.log('Flash sale - config.flash_price:', config.flash_price, 'type:', typeof config.flash_price)
+        const flashPrice = Number(config.flash_price)
+        console.log('Flash price after Number():', flashPrice)
+        if (!isNaN(flashPrice) && flashPrice >= 0) {
+          console.log('Result: Using flash sale price:', flashPrice)
+          return flashPrice
+        }
+        console.log('Result: Invalid flash price, using original')
+        return props.product.price
+      case 'newuser':
+        const newUserPrice = Number(config.new_user_price)
+        if (!isNaN(newUserPrice) && newUserPrice >= 0) {
+          console.log('Result: Using new user price:', newUserPrice)
+          return newUserPrice
+        }
+        return props.product.price
+      case 'groupon':
+        const discountRate = Number(config.discount_rate)
+        if (!isNaN(discountRate) && discountRate > 0 && discountRate <= 1) {
+          const grouponPrice = props.product.price * discountRate
+          console.log('Result: Using groupon price:', grouponPrice)
+          return grouponPrice
+        }
+        return props.product.price
+      default:
+        console.log('Result: Unknown promo type, using original price')
+        return props.product.price
+    }
+  } catch (e) {
+    console.error('Error parsing promo config:', e)
+    return props.product.price
+  }
+})
+
+// 是否显示促销价（原价划线）
+const showPromotionPrice = computed(() => {
+  if (!props.activePromotion) return false
+  if (props.activePromotion.type === 'fullreduce') return false
+  return displayPrice.value !== props.product.price
+})
+
+function getPromotionTag(promo) {
+  const tags = {
+    flashsale: '秒杀',
+    fullreduce: '满减',
+    groupon: '拼团',
+    newuser: '新人专享'
+  }
+  return tags[promo.type] || '活动'
+}
 
 const currentUser = ref(null)
 
@@ -165,6 +249,19 @@ function handleImageError(e) {
   font-weight: 500;
 }
 
+.promotion-tag {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  z-index: 5;
+}
+
 .product-info {
   padding: 15px;
   cursor: pointer;
@@ -198,10 +295,26 @@ function handleImageError(e) {
   align-items: center;
 }
 
+.price-wrapper {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .price {
   color: #ff4d4f;
   font-size: 22px;
   font-weight: bold;
+}
+
+.price.promotion-price {
+  color: #ff4d4f;
+}
+
+.original-price {
+  color: #999;
+  font-size: 14px;
+  text-decoration: line-through;
 }
 
 .stock {

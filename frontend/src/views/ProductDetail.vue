@@ -122,7 +122,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProduct, getProductReviews, addToCart } from '@/api/shopping'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ShoppingCart } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -13,19 +13,19 @@
       </template>
       <el-form :model="form" :rules="rules" ref="formRef" label-position="top">
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" size="large" :prefix-icon="User" />
+          <el-input v-model="form.username" placeholder="请输入用户名" size="large" prefix-icon="User" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" placeholder="请输入密码" size="large" :prefix-icon="Lock" show-password />
+          <el-input v-model="form.password" type="password" placeholder="请输入密码" size="large" prefix-icon="Lock" show-password />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword">
-          <el-input v-model="form.confirmPassword" type="password" placeholder="请再次输入密码" size="large" :prefix-icon="Lock" show-password />
+          <el-input v-model="form.confirmPassword" type="password" placeholder="请再次输入密码" size="large" prefix-icon="Lock" show-password />
         </el-form-item>
         <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="form.nickname" placeholder="请输入昵称" size="large" :prefix-icon="UserFilled" />
+          <el-input v-model="form.nickname" placeholder="请输入昵称" size="large" prefix-icon="UserFilled" />
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
-          <el-input v-model="form.phone" placeholder="请输入手机号" size="large" :prefix-icon="Phone" />
+          <el-input v-model="form.phone" placeholder="请输入手机号" size="large" prefix-icon="Phone" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" size="large" class="register-btn" @click="handleRegister">注 册</el-button>
@@ -42,7 +42,6 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, UserFilled, Phone, ShoppingBag } from '@element-plus/icons-vue'
 import { register } from '@/api/user'
 
 const router = useRouter()

@@ -10,6 +10,8 @@ import Register from '@/views/Register.vue'
 import Favorites from '@/views/Favorites.vue'
 import Messages from '@/views/Messages.vue'
 import ProductDetail from '@/views/ProductDetail.vue'
+import Dashboard from '@/views/Dashboard.vue'
+import Promotions from '@/views/Promotions.vue'
 
 const routes = [
   { path: '/login', component: Login, meta: { requiresAuth: false } },
@@ -21,6 +23,8 @@ const routes = [
   { path: '/addresses', component: Addresses, meta: { requiresAuth: true } },
   { path: '/users', component: Users, meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/products', component: Products, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: '/promotions', component: Promotions, meta: { requiresAuth: true, requiresAdmin: true } },
   { path: '/favorites', component: Favorites, meta: { requiresAuth: true } },
   { path: '/messages', component: Messages, meta: { requiresAuth: true, requiresAdmin: true } }
 ]

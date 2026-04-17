@@ -14,10 +14,13 @@ class Product(Base):
     image = Column(String)
     images = Column(String)  # JSON 数组存储多张图片
     stock = Column(Integer, default=0)  # 总库存（所有 SKU 库存之和）
+    low_stock_threshold = Column(Integer, default=10)  # 低库存预警阈值
     category = Column(String, default="其他")  # 商品分类
     is_hot = Column(Integer, default=0)  # 是否热门 0-否 1-是
+    is_active = Column(Integer, default=1)  # 是否上架 0-下架 1-上架
     sales = Column(Integer, default=0)  # 销量
     has_sku = Column(Integer, default=0)  # 是否有规格 0-否 1-是
+    tags = Column(String)  # 商品标签，JSON数组
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -203,4 +206,64 @@ class InventoryLog(Base):
     after_stock = Column(Integer, nullable=False)  # 变动后库存
     order_id = Column(Integer)  # 关联订单ID
     remark = Column(String)  # 备注
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class SearchHistory(Base):
+    __tablename__ = "search_histories"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer)  # 为空表示未登录用户
+    keyword = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class HotSearch(Base):
+    __tablename__ = "hot_searches"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    keyword = Column(String, nullable=False, unique=True)
+    search_count = Column(Integer, default=0)
+    is_active = Column(Integer, default=1)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class StockAlert(Base):
+    __tablename__ = "stock_alerts"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    product_id = Column(Integer, nullable=False)
+    sku_id = Column(Integer)
+    alert_type = Column(String, default="low_stock")  # low_stock-低库存 out_of_stock-售罄
+    stock_before = Column(Integer)
+    stock_after = Column(Integer)
+    is_resolved = Column(Integer, default=0)
+    resolved_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Promotion(Base):
+    __tablename__ = "promotions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False)  # flashsale-秒杀, fullreduce-满减, groupon-拼团, newuser-新人专享
+    status = Column(String, default="active")  # active-进行中, inactive-未开始, ended-已结束
+    start_time = Column(DateTime(timezone=True))
+    end_time = Column(DateTime(timezone=True))
+    config = Column(String)  # JSON配置：满减条件/秒杀价格/拼团人数等
+    product_ids = Column(String)  # JSON数组，关联商品ID
+    category = Column(String)  # 限定分类
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProductRecommendation(Base):
+    __tablename__ = "product_recommendations"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    product_id = Column(Integer, nullable=False)
+    recommended_product_id = Column(Integer, nullable=False)
+    type = Column(String, default="frequently_bought_together")  # frequently_bought_together-买了又买, similar-相似推荐
+    weight = Column(Integer, default=0)  # 推荐权重，越大越靠前
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -657,3 +657,301 @@ def update_after_sale(db: Session, after_sale_id: int, after_sale: schemas.After
     db.commit()
     db.refresh(db_after_sale)
     return db_after_sale
+
+
+def get_low_stock_products(db: Session):
+    products = db.query(models.Product).all()
+    low_stock = []
+    for product in products:
+        stock = int(product.stock) if product.stock is not None else 0
+        threshold = product.low_stock_threshold
+        if threshold is None:
+            threshold = 10
+        threshold = int(threshold)
+        if stock > 0 and stock <= threshold:
+            low_stock.append(product)
+    return low_stock
+
+
+def get_out_of_stock_products(db: Session):
+    products = db.query(models.Product).all()
+    return [p for p in products if p.stock <= 0]
+
+
+def get_stock_alerts(db: Session, is_resolved: int = None):
+    query = db.query(models.StockAlert)
+    if is_resolved is not None:
+        query = query.filter(models.StockAlert.is_resolved == is_resolved)
+    return query.order_by(models.StockAlert.created_at.desc()).all()
+
+
+def create_stock_alert(db: Session, alert: schemas.StockAlertCreate):
+    db_alert = models.StockAlert(**alert.dict())
+    db.add(db_alert)
+    db.commit()
+    db.refresh(db_alert)
+    return db_alert
+
+
+def resolve_stock_alert(db: Session, alert_id: int):
+    from sqlalchemy.sql import func
+    db_alert = db.query(models.StockAlert).filter(models.StockAlert.id == alert_id).first()
+    if db_alert:
+        db_alert.is_resolved = 1
+        db_alert.resolved_at = func.now()
+        db.commit()
+        db.refresh(db_alert)
+    return db_alert
+
+
+def add_search_history(db: Session, keyword: str, user_id: int = None):
+    db_history = models.SearchHistory(keyword=keyword, user_id=user_id)
+    db.add(db_history)
+    db.commit()
+    db.refresh(db_history)
+    from sqlalchemy import func
+    hot = db.query(models.HotSearch).filter(models.HotSearch.keyword == keyword).first()
+    if hot:
+        hot.search_count += 1
+    else:
+        hot = models.HotSearch(keyword=keyword, search_count=1)
+        db.add(hot)
+    db.commit()
+    return db_history
+
+
+def get_search_history(db: Session, user_id: int = None, limit: int = 10):
+    query = db.query(models.SearchHistory)
+    if user_id:
+        query = query.filter(models.SearchHistory.user_id == user_id)
+    return query.order_by(models.SearchHistory.created_at.desc()).limit(limit).all()
+
+
+def get_hot_searches(db: Session, limit: int = 10):
+    return db.query(models.HotSearch).filter(
+        models.HotSearch.is_active == 1
+    ).order_by(
+        models.HotSearch.sort_order.asc(),
+        models.HotSearch.search_count.desc()
+    ).limit(limit).all()
+
+
+def get_search_suggestions(db: Session, keyword: str, limit: int = 10):
+    from sqlalchemy import or_
+    suggestions = db.query(models.Product.name).filter(
+        or_(
+            models.Product.name.contains(keyword),
+            models.Product.description.contains(keyword)
+        )
+    ).limit(limit).all()
+    return [s[0] for s in suggestions]
+
+
+def get_products_by_filter(db: Session, min_price: float = None, max_price: float = None,
+                            min_sales: int = None, category: str = None,
+                            skip: int = 0, limit: int = 100):
+    query = db.query(models.Product)
+    if min_price is not None:
+        query = query.filter(models.Product.price >= min_price)
+    if max_price is not None:
+        query = query.filter(models.Product.price <= max_price)
+    if min_sales is not None:
+        query = query.filter(models.Product.sales >= min_sales)
+    if category and category != "全部":
+        query = query.filter(models.Product.category == category)
+    return query.offset(skip).limit(limit).all()
+
+
+def batch_update_products_status(db: Session, product_ids: list, is_active: int):
+    db.query(models.Product).filter(models.Product.id.in_(product_ids)).update({"is_active": is_active})
+    db.commit()
+    return True
+
+
+def get_promotions(db: Session, promotion_type: str = None, status: str = None):
+    query = db.query(models.Promotion)
+    if promotion_type:
+        query = query.filter(models.Promotion.type == promotion_type)
+    if status:
+        query = query.filter(models.Promotion.status == status)
+    return query.all()
+
+
+def get_promotion(db: Session, promotion_id: int):
+    return db.query(models.Promotion).filter(models.Promotion.id == promotion_id).first()
+
+
+def create_promotion(db: Session, promotion: schemas.PromotionCreate):
+    db_promotion = models.Promotion(**promotion.dict())
+    db.add(db_promotion)
+    db.commit()
+    db.refresh(db_promotion)
+    return db_promotion
+
+
+def update_promotion(db: Session, promotion_id: int, promotion: schemas.PromotionUpdate):
+    db_promotion = get_promotion(db, promotion_id)
+    if not db_promotion:
+        return None
+    update_data = promotion.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_promotion, key, value)
+    db.commit()
+    db.refresh(db_promotion)
+    return db_promotion
+
+
+def delete_promotion(db: Session, promotion_id: int):
+    db_promotion = get_promotion(db, promotion_id)
+    if not db_promotion:
+        return False
+    db.delete(db_promotion)
+    db.commit()
+    return True
+
+
+def get_active_promotions(db: Session):
+    query = db.query(models.Promotion).filter(models.Promotion.status == "active")
+    promotions = query.all()
+    return promotions
+
+
+def get_product_recommendations(db: Session, product_id: int, rec_type: str = None):
+    query = db.query(models.ProductRecommendation).filter(
+        models.ProductRecommendation.product_id == product_id
+    )
+    if rec_type:
+        query = query.filter(models.ProductRecommendation.type == rec_type)
+    return query.order_by(models.ProductRecommendation.weight.desc()).all()
+
+
+def add_product_recommendation(db: Session, recommendation: schemas.ProductRecommendationCreate):
+    db_rec = models.ProductRecommendation(**recommendation.dict())
+    db.add(db_rec)
+    db.commit()
+    db.refresh(db_rec)
+    return db_rec
+
+
+def get_sales_stats(db: Session, period: str = "daily"):
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    if period == "daily":
+        start_date = now - timedelta(days=30)
+    elif period == "weekly":
+        start_date = now - timedelta(weeks=12)
+    elif period == "monthly":
+        start_date = now - timedelta(days=365)
+    else:
+        start_date = now - timedelta(days=30)
+
+    orders = db.query(models.Order).filter(
+        models.Order.created_at >= start_date,
+        models.Order.status.in_(["paid", "shipped", "completed"])
+    ).all()
+
+    stats_dict = {}
+    for order in orders:
+        if period == "daily":
+            period_key = order.created_at.strftime('%Y-%m-%d') if order.created_at else 'unknown'
+        elif period == "weekly":
+            period_key = order.created_at.strftime('%Y-%W') if order.created_at else 'unknown'
+        elif period == "monthly":
+            period_key = order.created_at.strftime('%Y-%m') if order.created_at else 'unknown'
+        else:
+            period_key = order.created_at.strftime('%Y-%m-%d') if order.created_at else 'unknown'
+
+        if period_key not in stats_dict:
+            stats_dict[period_key] = {
+                'period': period_key,
+                'total_orders': 0,
+                'total_sales': 0.0,
+                'total_products': 0
+            }
+        stats_dict[period_key]['total_orders'] += 1
+        stats_dict[period_key]['total_sales'] += order.total_price or 0
+        for item in order.items:
+            stats_dict[period_key]['total_products'] += item.quantity or 0
+
+    return list(stats_dict.values())
+
+
+def get_product_sales_rank(db: Session, limit: int = 10):
+    orders = db.query(models.Order).filter(
+        models.Order.status.in_(["paid", "shipped", "completed"])
+    ).all()
+
+    product_stats = {}
+    for order in orders:
+        for item in order.items:
+            product_id = item.product_id
+            if product_id not in product_stats:
+                product = get_product(db, product_id)
+                product_stats[product_id] = {
+                    'product_id': product_id,
+                    'product_name': product.name if product else 'Unknown',
+                    'sales_count': 0,
+                    'sales_amount': 0.0
+                }
+            product_stats[product_id]['sales_count'] += item.quantity or 0
+            product_stats[product_id]['sales_amount'] += (item.quantity or 0) * (item.price or 0)
+
+    sorted_products = sorted(
+        product_stats.values(),
+        key=lambda x: x['sales_count'],
+        reverse=True
+    )
+
+    return sorted_products[:limit]
+
+
+def get_user_growth_stats(db: Session, days: int = 30):
+    return []
+
+
+def get_order_conversion_stats(db: Session):
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    start_date = now - timedelta(days=30)
+
+    all_orders = db.query(models.Order).filter(
+        models.Order.created_at >= start_date
+    ).all()
+
+    total_created = len(all_orders)
+    total_paid = len([o for o in all_orders if o.status in ["paid", "shipped", "completed"]])
+
+    conversion_rate = 0.0
+    if total_created > 0:
+        conversion_rate = (total_paid / total_created) * 100
+
+    return {
+        "total_visits": 0,
+        "cart_adds": 0,
+        "orders_created": total_created,
+        "orders_paid": total_paid,
+        "conversion_rate": conversion_rate
+    }
+
+
+def get_summary_stats(db: Session):
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    start_date = now - timedelta(days=365)
+
+    orders = db.query(models.Order).filter(
+        models.Order.created_at >= start_date,
+        models.Order.status.in_(["paid", "shipped", "completed"])
+    ).all()
+
+    total_orders = len(orders)
+    total_sales = sum(order.total_price or 0 for order in orders)
+
+    products = db.query(models.Product).all()
+    total_products = len(products)
+
+    return {
+        "total_orders": total_orders,
+        "total_sales": total_sales,
+        "total_products": total_products
+    }

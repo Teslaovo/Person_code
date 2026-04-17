@@ -40,8 +40,27 @@
           <template #default="{ row }">¥{{ (row.product.price * row.quantity).toFixed(2) }}</template>
         </el-table-column>
       </el-table>
+      <div class="checkout-summary">
+        <div class="summary-row">
+          <span class="label">商品小计:</span>
+          <span class="value">¥{{ checkoutSubtotal.toFixed(2) }}</span>
+        </div>
+        <div class="summary-row promotion" v-if="applicablePromotion">
+          <span class="label">
+            <el-tag type="success" size="small">{{ applicablePromotion.name }}</el-tag>
+          </span>
+          <span class="value discount">-¥{{ promotionDiscount.toFixed(2) }}</span>
+        </div>
+        <div class="summary-row total">
+          <span class="label">应付总额:</span>
+          <span class="value">¥{{ checkoutTotal.toFixed(2) }}</span>
+        </div>
+        <div class="summary-tip" v-if="!applicablePromotion && activePromotions.some(p => p.type === 'fullreduce')">
+          <el-icon><InfoFilled /></el-icon>
+          <span>还有满减活动可参与，继续加购吧~</span>
+        </div>
+      </div>
       <div class="checkout-footer">
-        <span class="total">总计: ¥{{ checkoutTotal.toFixed(2) }}</span>
         <el-button type="primary" size="large" :loading="creating" @click="submitOrder" :disabled="!selectedAddressId">提交订单</el-button>
       </div>
     </el-card>
@@ -152,7 +171,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getOrders, getAllOrders, createOrder, getProducts, updateOrderStatus, shipOrder, createReview, getPendingReviews } from '@/api/shopping'
+import { getOrders, getAllOrders, createOrder, getProducts, updateOrderStatus, shipOrder, createReview, getPendingReviews, getPromotions } from '@/api/shopping'
 import { getAddresses, getUsers } from '@/api/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -161,6 +180,7 @@ const orders = ref([])
 const addresses = ref([])
 const products = ref([])
 const users = ref([])
+const activePromotions = ref([])
 const showCheckout = ref(false)
 const checkoutItems = ref([])
 const creating = ref(false)
@@ -182,8 +202,57 @@ const pendingReviewItems = ref([])
 
 const isAdmin = computed(() => currentUser.value?.role === 'admin')
 
-const checkoutTotal = computed(() => {
+const checkoutSubtotal = computed(() => {
   return checkoutItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+})
+
+const applicablePromotion = computed(() => {
+  if (!activePromotions.value || activePromotions.value.length === 0) return null
+
+  const subtotal = checkoutSubtotal.value
+  const productIds = checkoutItems.value.map(item => item.product_id)
+  const categories = checkoutItems.value.map(item => item.product.category)
+
+  for (const promo of activePromotions.value) {
+    if (promo.type !== 'fullreduce') continue
+    if (promo.status !== 'active') continue
+
+    try {
+      const config = JSON.parse(promo.config || '{}')
+      const minAmount = config.min_amount || 0
+
+      if (promo.product_ids) {
+        const promoProductIds = promo.product_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+        const hasMatch = productIds.some(pid => promoProductIds.includes(pid))
+        if (!hasMatch) continue
+      }
+
+      if (promo.category && !categories.includes(promo.category)) {
+        continue
+      }
+
+      if (subtotal >= minAmount) {
+        return promo
+      }
+    } catch (e) {
+      console.error('Error parsing promotion config:', e)
+    }
+  }
+  return null
+})
+
+const promotionDiscount = computed(() => {
+  if (!applicablePromotion.value) return 0
+  try {
+    const config = JSON.parse(applicablePromotion.value.config || '{}')
+    return config.discount || 0
+  } catch (e) {
+    return 0
+  }
+})
+
+const checkoutTotal = computed(() => {
+  return Math.max(0, checkoutSubtotal.value - promotionDiscount.value)
 })
 
 function getStatusType(status) {
@@ -215,6 +284,7 @@ onMounted(() => {
     loadProducts()
     loadOrders()
     loadAddresses()
+    loadPromotions()
     if (isAdmin.value) {
       loadUsers()
     }
@@ -232,6 +302,15 @@ onMounted(() => {
 async function loadProducts() {
   const res = await getProducts()
   products.value = res.data || []
+}
+
+async function loadPromotions() {
+  try {
+    const res = await getPromotions()
+    activePromotions.value = res.data || []
+  } catch (e) {
+    console.error('Load promotions failed', e)
+  }
 }
 
 async function loadUsers() {
@@ -311,7 +390,8 @@ async function submitOrder() {
       address_province: selectedAddress.value.province,
       address_city: selectedAddress.value.city,
       address_district: selectedAddress.value.district,
-      address_detail: selectedAddress.value.detail
+      address_detail: selectedAddress.value.detail,
+      total_price: checkoutTotal.value
     })
     ElMessage.success('订单创建成功，请付款')
     showCheckout.value = false
@@ -493,17 +573,81 @@ function formatDate(dateStr) {
   color: #666;
   line-height: 1.6;
 }
+.checkout-summary {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.summary-row:last-child {
+  margin-bottom: 0;
+}
+
+.summary-row .label {
+  color: #666;
+  font-size: 14px;
+}
+
+.summary-row .value {
+  font-size: 14px;
+  color: #333;
+}
+
+.summary-row.promotion {
+  padding: 10px 0;
+  border-top: 1px dashed #ddd;
+  border-bottom: 1px dashed #ddd;
+  margin: 12px 0;
+}
+
+.summary-row.promotion .value.discount {
+  color: #67c23a;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.summary-row.total {
+  padding-top: 8px;
+}
+
+.summary-row.total .label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.summary-row.total .value {
+  font-size: 22px;
+  font-weight: bold;
+  color: #f56c6c;
+}
+
+.summary-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px;
+  background: #e6f7ff;
+  border-radius: 4px;
+  color: #1890ff;
+  font-size: 13px;
+}
+
 .checkout-footer {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 20px;
-}
-.checkout-footer .total {
-  font-size: 20px;
-  font-weight: bold;
-  color: #f56c6c;
 }
 .order-header {
   display: flex;

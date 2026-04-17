@@ -92,7 +92,6 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCart, updateCart, deleteCartItem } from '@/api/shopping'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ShoppingCart, Delete } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const cartItems = ref([])

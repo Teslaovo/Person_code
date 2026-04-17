@@ -58,7 +58,6 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMessages, sendMessage as sendMessageApi, getConversations, getUnreadCount, markConversationRead } from '@/api/shopping'
 import { getUserInfo } from '@/api/user'
-import { Refresh } from '@element-plus/icons-vue'
 
 const messages = ref([])
 const conversationUsers = ref([])
